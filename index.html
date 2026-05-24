@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>iTimer — OPD / BP Debate</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0b0d10" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="iTimer" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon-180.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="stage">
+    <div class="tilt" id="tilt">
+      <div class="timer-wrap">
+        <svg class="ring" viewBox="0 0 400 400" aria-hidden="true">
+          <defs>
+            <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="2" />
+            </filter>
+          </defs>
+
+          <!-- track -->
+          <circle cx="200" cy="200" r="170" class="track" />
+
+          <!-- main progress (countdown fills 0->100%) -->
+          <circle cx="200" cy="200" r="170" class="progress" id="progress"
+                  pathLength="1000"
+                  stroke-dasharray="1000"
+                  stroke-dashoffset="1000" />
+
+          <!-- overtime progress (thin, outside) -->
+          <circle cx="200" cy="200" r="190" class="overtime" id="overtime"
+                  pathLength="1000"
+                  stroke-dasharray="1000"
+                  stroke-dashoffset="1000" />
+
+          <!-- minute ticks -->
+          <g class="ticks" id="ticks"></g>
+
+          <!-- milestone markers -->
+          <g class="markers" id="markers"></g>
+        </svg>
+
+        <div class="readout" id="readout">
+          <div class="time" id="time">7:00</div>
+          <div class="label" id="label">ready</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="btn primary" id="startBtn" type="button">Start</button>
+        <button class="btn" id="resetBtn" type="button">Reset</button>
+      </div>
+
+      <div class="settings">
+        <label class="toggle">
+          <input type="checkbox" id="soundToggle" checked />
+          <span>Sound</span>
+        </label>
+        <label class="num">
+          <span>Minutes</span>
+          <input type="number" id="minutes" min="1" max="30" value="7" inputmode="numeric" />
+        </label>
+        <label class="num">
+          <span>Tilt</span>
+          <input type="range" id="tiltRange" min="0" max="55" value="35" />
+        </label>
+        <button class="btn ghost" id="flipBtn" type="button" title="Flip tilt direction">Flip</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
