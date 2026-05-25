@@ -5,8 +5,9 @@
 (() => {
   "use strict";
 
-  const TARGET_DEFAULT_MIN = 7;
-  const STORAGE_KEY = "itimer.settings.v1";
+  const STORAGE_KEY = "itimer.settings.v2";
+  const MODES = ["07:15", "07:00", "03:30", "01:00"];
+  const DEFAULT_MODE = "07:00";
 
   // DOM
   const tiltEl    = document.getElementById("tilt");
@@ -19,59 +20,93 @@
   const startBtn  = document.getElementById("startBtn");
   const resetBtn  = document.getElementById("resetBtn");
   const soundTgl  = document.getElementById("soundToggle");
-  const minutesIn = document.getElementById("minutes");
   const tiltRange = document.getElementById("tiltRange");
   const flipBtn   = document.getElementById("flipBtn");
+  const modesEl   = document.getElementById("modes");
+  const stage     = document.getElementById("stage");
 
   // Settings (persisted)
   const settings = Object.assign(
-    { minutes: TARGET_DEFAULT_MIN, sound: true, tilt: 35, flipped: false },
+    { mode: DEFAULT_MODE, sound: true, tilt: 35, flipped: false, digitScale: 1 },
     safeParse(localStorage.getItem(STORAGE_KEY))
   );
+  if (!MODES.includes(settings.mode)) settings.mode = DEFAULT_MODE;
 
   function persist() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch {}
   }
   function safeParse(s) { try { return JSON.parse(s) || {}; } catch { return {}; } }
 
+  function modeToMs(mode) {
+    const [mm, ss] = mode.split(":").map(Number);
+    return (mm * 60 + ss) * 1000;
+  }
+
   // Apply persisted settings to UI
-  minutesIn.value = settings.minutes;
   soundTgl.checked = !!settings.sound;
   tiltRange.value = settings.tilt;
+  setActiveMode(settings.mode);
   applyTilt();
+  applyDigitScale();
 
   // Timer state
-  let targetMs   = settings.minutes * 60_000;
-  let startedAt  = 0;       // performance.now() at start
-  let baseElapsed = 0;      // elapsed accumulated before a pause (currently always 0; reserved)
+  let targetMs   = modeToMs(settings.mode);
+  let startedAt  = 0;
   let running    = false;
   let rafId      = 0;
   let firedCues  = new Set();
   let wakeLock   = null;
 
-  // SVG ring math: pathLength=1000 → dashoffset 0..1000 maps to 0..100%
   const RING_TOTAL = 1000;
 
   buildTicks();
   buildMarkers();
   updateDisplay(0);
 
+  // -- Mode buttons -----------------------------------------------------
+
+  modesEl.addEventListener("click", (e) => {
+    const btn = e.target.closest(".mode");
+    if (!btn || btn.disabled) return;
+    const mode = btn.dataset.mode;
+    if (!MODES.includes(mode)) return;
+    settings.mode = mode;
+    persist();
+    setActiveMode(mode);
+    if (!running) {
+      targetMs = modeToMs(mode);
+      firedCues.clear();
+      buildTicks();
+      buildMarkers();
+      updateDisplay(0);
+    }
+  });
+
+  function setActiveMode(mode) {
+    for (const b of modesEl.querySelectorAll(".mode")) {
+      b.classList.toggle("active", b.dataset.mode === mode);
+    }
+  }
+
+  function setModeButtonsDisabled(disabled) {
+    for (const b of modesEl.querySelectorAll(".mode")) {
+      b.disabled = disabled && b.dataset.mode !== settings.mode;
+    }
+  }
+
   // -- UI events --------------------------------------------------------
 
   startBtn.addEventListener("click", () => {
-    if (running) {
-      stop();
-    } else {
-      // first-touch audio unlock
-      ensureAudio();
-      start();
-    }
+    if (running) stop();
+    else { ensureAudio(); start(); }
   });
 
   resetBtn.addEventListener("click", () => {
     stop();
     firedCues.clear();
-    targetMs = clampMinutes(parseInt(minutesIn.value, 10)) * 60_000;
+    targetMs = modeToMs(settings.mode);
+    buildTicks();
+    buildMarkers();
     updateDisplay(0);
     tiltEl.classList.remove("state-amber", "state-red", "state-over");
     tiltEl.classList.add("state-green");
@@ -82,19 +117,6 @@
     settings.sound = soundTgl.checked;
     persist();
     if (settings.sound) ensureAudio();
-  });
-
-  minutesIn.addEventListener("change", () => {
-    const v = clampMinutes(parseInt(minutesIn.value, 10));
-    minutesIn.value = v;
-    settings.minutes = v;
-    persist();
-    if (!running) {
-      targetMs = v * 60_000;
-      firedCues.clear();
-      updateDisplay(0);
-      buildMarkers();
-    }
   });
 
   tiltRange.addEventListener("input", () => {
@@ -109,20 +131,81 @@
     applyTilt();
   });
 
-  // Re-acquire wake lock when returning to the tab.
   document.addEventListener("visibilitychange", () => {
     if (running && document.visibilityState === "visible") requestWakeLock();
   });
 
+  // -- Two-finger gestures: vertical pan → tilt, pinch → digit size -----
+
+  setupGestures();
+
+  function setupGestures() {
+    let g = null;
+
+    const onStart = (e) => {
+      if (e.touches.length === 2) {
+        const [a, b] = e.touches;
+        g = {
+          midY: (a.clientY + b.clientY) / 2,
+          dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+          startTilt: settings.tilt,
+          startScale: settings.digitScale,
+        };
+        e.preventDefault();
+      } else {
+        g = null;
+      }
+    };
+
+    const onMove = (e) => {
+      if (!g || e.touches.length !== 2) return;
+      const [a, b] = e.touches;
+      const midY = (a.clientY + b.clientY) / 2;
+      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      const dy = midY - g.midY;     // positive = fingers moved down
+      const dd = dist - g.dist;     // positive = fingers spread apart
+
+      // Vertical swipe up (negative dy) increases tilt. 3 px ≈ 1°.
+      const nextTilt = clamp(g.startTilt - dy / 3, 0, 60);
+      // Pinch out (positive dd) increases digit size. 200 px swing ≈ 1.0.
+      const nextScale = clamp(g.startScale + dd / 220, 0.5, 2.2);
+
+      if (Math.abs(nextTilt - settings.tilt) > 0.1) {
+        settings.tilt = nextTilt;
+        tiltRange.value = Math.round(nextTilt);
+        applyTilt();
+      }
+      if (Math.abs(nextScale - settings.digitScale) > 0.005) {
+        settings.digitScale = nextScale;
+        applyDigitScale();
+      }
+      e.preventDefault();
+    };
+
+    const onEnd = (e) => {
+      if (g && e.touches.length < 2) {
+        g = null;
+        persist();
+      }
+    };
+
+    stage.addEventListener("touchstart",  onStart, { passive: false });
+    stage.addEventListener("touchmove",   onMove,  { passive: false });
+    stage.addEventListener("touchend",    onEnd);
+    stage.addEventListener("touchcancel", onEnd);
+  }
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
   // -- Core timer loop --------------------------------------------------
 
   function start() {
-    targetMs = clampMinutes(parseInt(minutesIn.value, 10)) * 60_000;
+    targetMs = modeToMs(settings.mode);
     startedAt = performance.now();
-    baseElapsed = 0;
     running = true;
     startBtn.textContent = "Stop";
     startBtn.classList.remove("primary");
+    setModeButtonsDisabled(true);
     requestWakeLock();
     tick();
   }
@@ -133,12 +216,13 @@
     cancelAnimationFrame(rafId);
     startBtn.textContent = "Start";
     startBtn.classList.add("primary");
+    setModeButtonsDisabled(false);
     releaseWakeLock();
   }
 
   function tick() {
     rafId = requestAnimationFrame(tick);
-    const elapsed = baseElapsed + (performance.now() - startedAt);
+    const elapsed = performance.now() - startedAt;
     updateDisplay(elapsed);
     fireCues(elapsed);
   }
@@ -152,19 +236,16 @@
     const ss = totalSec % 60;
     timeEl.textContent = `${over ? "+" : ""}${mm}:${ss.toString().padStart(2, "0")}`;
 
-    // ring progress
     const frac = Math.min(1, Math.max(0, elapsed / targetMs));
     progress.setAttribute("stroke-dashoffset", String(RING_TOTAL * (1 - frac)));
 
     if (over) {
-      // Overtime ring grows over its own minute window
       const overFrac = Math.min(1, (elapsed - targetMs) / 60_000);
       overtime.setAttribute("stroke-dashoffset", String(RING_TOTAL * (1 - overFrac)));
     } else {
       overtime.setAttribute("stroke-dashoffset", String(RING_TOTAL));
     }
 
-    // state colors / labels
     tiltEl.classList.remove("state-green", "state-amber", "state-red", "state-over");
     if (over) {
       tiltEl.classList.add("state-over");
@@ -183,17 +264,15 @@
 
   // -- Audio cues -------------------------------------------------------
 
-  // Cue table: { id, atSecElapsed, type }
-  // Triggers are evaluated against the integer second of elapsed time.
   function cues() {
     const t = Math.round(targetMs / 1000);
     return [
-      { id: "6min-left", at: t - 6 * 60, type: "peep"  }, // peep at 6 min left
-      { id: "1min-left", at: t - 60,    type: "ping"  }, // ping at 1 min left
-      { id: "last-3a",   at: t - 3,     type: "ping"  }, // last three seconds
-      { id: "last-3b",   at: t - 2,     type: "ping"  },
-      { id: "last-3c",   at: t - 1,     type: "ping"  },
-      { id: "plus-15",   at: t + 15,    type: "peep"  }, // peep at +15s overtime
+      { id: "6min-left", at: t - 6 * 60, type: "peep" },
+      { id: "1min-left", at: t - 60,    type: "ping" },
+      { id: "last-3a",   at: t - 3,     type: "ping" },
+      { id: "last-3b",   at: t - 2,     type: "ping" },
+      { id: "last-3c",   at: t - 1,     type: "ping" },
+      { id: "plus-15",   at: t + 15,    type: "peep" },
     ].filter(c => c.at > 0);
   }
 
@@ -217,7 +296,6 @@
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
       audioCtx = new Ctx();
-      // Warm-up: silent 1-sample buffer to unlock iOS audio.
       const b = audioCtx.createBuffer(1, 1, 22050);
       const s = audioCtx.createBufferSource();
       s.buffer = b;
@@ -245,7 +323,6 @@
       o.start(now);
       o.stop(now + 0.24);
     } else {
-      // "ping" — brighter, bell-like with fast decay
       o.type = "triangle";
       o.frequency.setValueAtTime(1480, now);
       o.frequency.exponentialRampToValueAtTime(1100, now + 0.18);
@@ -264,7 +341,7 @@
     try {
       wakeLock = await navigator.wakeLock.request("screen");
       wakeLock.addEventListener("release", () => { wakeLock = null; });
-    } catch (e) { /* user gesture/permission may be required */ }
+    } catch (e) { /* permission may be required */ }
   }
   function releaseWakeLock() {
     if (wakeLock) { try { wakeLock.release(); } catch {} wakeLock = null; }
@@ -279,10 +356,12 @@
 
   function buildTicks() {
     ticksG.innerHTML = "";
-    const minutes = Math.max(1, Math.round(targetMs / 60_000));
-    // 60 minor ticks would be too noisy at small target; show ticks every minute.
-    for (let i = 0; i < minutes; i++) {
-      const angle = (i / minutes) * 360;
+    const totalSec = targetMs / 1000;
+    const minutes = Math.floor(totalSec / 60);
+    for (let i = 1; i <= minutes; i++) {
+      const frac = (i * 60) / totalSec;
+      if (frac >= 1) break;
+      const angle = frac * 360;
       const [x1, y1] = polar(200, 200, 156, angle);
       const [x2, y2] = polar(200, 200, 144, angle);
       const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
@@ -298,6 +377,7 @@
     const total = targetMs / 1000;
     const addDot = (atSec, cls) => {
       const frac = atSec / total;
+      if (frac <= 0 || frac > 1) return;
       const angle = frac * 360;
       const [x, y] = polar(200, 200, 170, angle);
       const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
@@ -305,10 +385,8 @@
       if (cls) c.setAttribute("class", cls);
       markersG.appendChild(c);
     };
-    // 6-min-left and 1-min-left milestones, when they fit inside the target
     if (total > 6 * 60) addDot(total - 6 * 60, "");
     if (total > 60)     addDot(total - 60, "warn");
-    // expiry mark
     addDot(total - 0.001, "warn");
   }
 
@@ -319,9 +397,8 @@
     tiltEl.style.setProperty("--tilt-sign", settings.flipped ? "1" : "-1");
   }
 
-  function clampMinutes(v) {
-    if (!Number.isFinite(v)) return TARGET_DEFAULT_MIN;
-    return Math.max(1, Math.min(30, v));
+  function applyDigitScale() {
+    tiltEl.style.setProperty("--digit-scale", String(settings.digitScale));
   }
 
   // Service worker registration (offline support after Add to Home Screen)
