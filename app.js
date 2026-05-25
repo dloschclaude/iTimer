@@ -1,27 +1,56 @@
 // iTimer — countdown / count-up timer for OPD and BP debates.
-// Counts down from a target duration. After expiry it keeps running,
-// displaying overtime. Optional bell cues mark debate milestones per mode.
+// Three views (ring, digital, segmented) selectable by horizontal swipe.
 
 (() => {
   "use strict";
 
-  const STORAGE_KEY = "itimer.settings.v3";
+  const STORAGE_KEY = "itimer.settings.v4";
   const DEFAULT_MODE = "bp-700";
   const GRACE_MS = 15_000;
 
-  // Each mode: target duration, grace window, and a list of bell cues.
-  // `at` is elapsed milliseconds since start. `count` is the number of
-  // bell strikes played in sequence.
+  // -- Segmented display constants (used at init, must come first) -----
+
+  const SEG_W = 100, COLON_W = 40;
+
+  const SEG_PATHS = {
+    a: "M20,4 H80 L74,14 H26 Z",
+    b: "M86,18 L96,8 V72 L86,76 Z",
+    c: "M86,84 L96,88 V152 L86,142 Z",
+    d: "M26,146 H74 L80,156 H20 Z",
+    e: "M4,88 L14,84 V142 L4,152 Z",
+    f: "M4,8 L14,18 V76 L4,72 Z",
+    g: "M14,80 L24,72 H76 L86,80 L76,88 H24 Z",
+  };
+  const CORNER_PATHS = {
+    h: "M0,0 H10 V10 H0 Z",
+    i: "M90,0 H100 V10 H90 Z",
+    j: "M0,150 H10 V160 H0 Z",
+    k: "M90,150 H100 V160 H90 Z",
+  };
+  const DIGIT_PATTERN = {
+    "0": { segs: "abcdef",  corners: "hijk" },
+    "1": { segs: "bc",      corners: "ik"   },
+    "2": { segs: "abdeg",   corners: "hi"   },
+    "3": { segs: "abcdg",   corners: "ik"   },
+    "4": { segs: "bcfg",    corners: "hi"   },
+    "5": { segs: "acdfg",   corners: "hk"   },
+    "6": { segs: "acdefg",  corners: "hjk"  },
+    "7": { segs: "abc",     corners: "ik"   },
+    "8": { segs: "abcdefg", corners: "hijk" },
+    "9": { segs: "abcdfg",  corners: "hik"  },
+    " ": { segs: "",        corners: ""     },
+  };
+
   const MODES = {
     "bp-700": {
       label: "BP / OPD 7:00",
       targetMs: 7 * 60_000,
       graceMs: GRACE_MS,
       cues: [
-        { at: 1 * 60_000,             count: 1 },   // 1:00 elapsed
-        { at: 6 * 60_000,             count: 1 },   // 6:00 elapsed (1 min left)
-        { at: 7 * 60_000,             count: 2 },   // 7:00 elapsed (time's up)
-        { at: 7 * 60_000 + 15_000,    count: 1 },   // 7:15 elapsed (grace end)
+        { at: 1 * 60_000,             count: 1 },
+        { at: 6 * 60_000,             count: 1 },
+        { at: 7 * 60_000,             count: 2 },
+        { at: 7 * 60_000 + 15_000,    count: 1 },
       ],
     },
     "opd-330": {
@@ -29,9 +58,9 @@
       targetMs: 3 * 60_000 + 30_000,
       graceMs: GRACE_MS,
       cues: [
-        { at: 1 * 60_000,             count: 1 },   // 1:00 elapsed
-        { at: 3 * 60_000,             count: 2 },   // 3:00 elapsed
-        { at: 3 * 60_000 + 15_000,    count: 1 },   // 3:15 elapsed
+        { at: 1 * 60_000,             count: 1 },
+        { at: 3 * 60_000,             count: 2 },
+        { at: 3 * 60_000 + 15_000,    count: 1 },
       ],
     },
     "opd-100": {
@@ -39,8 +68,8 @@
       targetMs: 60_000,
       graceMs: GRACE_MS,
       cues: [
-        { at: 60_000,                 count: 2 },   // 1:00 elapsed
-        { at: 75_000,                 count: 1 },   // 1:15 elapsed (grace end)
+        { at: 60_000,                 count: 2 },
+        { at: 75_000,                 count: 1 },
       ],
     },
     "prep-1500": {
@@ -48,41 +77,44 @@
       targetMs: 15 * 60_000,
       graceMs: GRACE_MS,
       cues: [
-        { at: 10 * 60_000,            count: 1 },   // 10:00 elapsed (5 min left)
-        { at: 14 * 60_000,            count: 1 },   // 14:00 elapsed (1 min left)
-        { at: 15 * 60_000,            count: 2 },   // 15:00 elapsed (time's up)
+        { at: 10 * 60_000,            count: 1 },
+        { at: 14 * 60_000,            count: 1 },
+        { at: 15 * 60_000,            count: 2 },
       ],
     },
   };
 
   // DOM
-  const tiltEl    = document.getElementById("tilt");
-  const timeEl    = document.getElementById("time");
-  const labelEl   = document.getElementById("label");
-  const progress  = document.getElementById("progress");
-  const overtime  = document.getElementById("overtime");
-  const ticksG    = document.getElementById("ticks");
-  const markersG  = document.getElementById("markers");
-  const startBtn  = document.getElementById("startBtn");
-  const resetBtn  = document.getElementById("resetBtn");
-  const soundTgl  = document.getElementById("soundToggle");
-  const tiltRange = document.getElementById("tiltRange");
-  const flipBtn   = document.getElementById("flipBtn");
-  const modesEl   = document.getElementById("modes");
-  const stage     = document.getElementById("stage");
+  const stage      = document.getElementById("stage");
+  const carousel   = document.getElementById("carousel");
+  const dotsEl     = document.getElementById("dots");
+  const panel      = document.getElementById("panel");
+  const timeRing   = document.getElementById("timeRing");
+  const timeDigital= document.getElementById("timeDigital");
+  const segmented  = document.getElementById("segmented");
+  const segSlots   = document.getElementById("segSlots");
+  const labelEl    = document.getElementById("label");
+  const labelDigit = document.getElementById("labelDigital");
+  const labelSeg   = document.getElementById("labelSeg");
+  const progress   = document.getElementById("progress");
+  const overtime   = document.getElementById("overtime");
+  const ticksG     = document.getElementById("ticks");
+  const startBtn   = document.getElementById("startBtn");
+  const resetBtn   = document.getElementById("resetBtn");
+  const soundTgl   = document.getElementById("soundToggle");
+  const tiltRange  = document.getElementById("tiltRange");
+  const flipBtn    = document.getElementById("flipBtn");
+  const modesEl    = document.getElementById("modes");
 
   // Settings (persisted)
   const settings = Object.assign(
-    { mode: DEFAULT_MODE, sound: true, tilt: 35, flipped: false, digitScale: 1 },
+    { mode: DEFAULT_MODE, sound: true, tilt: 35, flipped: false, digitScale: 1, view: 0 },
     safeParse(localStorage.getItem(STORAGE_KEY))
   );
   if (!MODES[settings.mode]) settings.mode = DEFAULT_MODE;
 
-  function persist() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch {}
-  }
+  function persist() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch {} }
   function safeParse(s) { try { return JSON.parse(s) || {}; } catch { return {}; } }
-
   function currentMode() { return MODES[settings.mode]; }
 
   // Apply persisted settings to UI
@@ -91,6 +123,7 @@
   setActiveMode(settings.mode);
   applyTilt();
   applyDigitScale();
+  buildSegmentedDisplay();
 
   // Timer state
   let targetMs   = currentMode().targetMs;
@@ -99,12 +132,11 @@
   let rafId      = 0;
   let firedCues  = new Set();
   let wakeLock   = null;
-
   const RING_TOTAL = 1000;
 
   buildTicks();
-  buildMarkers();
   updateDisplay(0);
+  setView(settings.view, false);
 
   // -- Mode buttons -----------------------------------------------------
 
@@ -120,7 +152,6 @@
       targetMs = MODES[mode].targetMs;
       firedCues.clear();
       buildTicks();
-      buildMarkers();
       updateDisplay(0);
     }
   });
@@ -130,14 +161,13 @@
       b.classList.toggle("active", b.dataset.mode === mode);
     }
   }
-
   function setModeButtonsDisabled(disabled) {
     for (const b of modesEl.querySelectorAll(".mode")) {
       b.disabled = disabled && b.dataset.mode !== settings.mode;
     }
   }
 
-  // -- UI events --------------------------------------------------------
+  // -- Controls ---------------------------------------------------------
 
   startBtn.addEventListener("click", () => {
     if (running) stop();
@@ -149,9 +179,8 @@
     firedCues.clear();
     targetMs = currentMode().targetMs;
     buildTicks();
-    buildMarkers();
     updateDisplay(0);
-    labelEl.textContent = "ready";
+    setLabel("ready");
   });
 
   soundTgl.addEventListener("change", () => {
@@ -176,13 +205,59 @@
     if (running && document.visibilityState === "visible") requestWakeLock();
   });
 
+  // -- View selection ---------------------------------------------------
+
+  // Sync the active dot with the carousel's current scroll position.
+  function viewIndexFromScroll() {
+    const w = carousel.clientWidth;
+    if (!w) return 0;
+    return Math.round(carousel.scrollLeft / w);
+  }
+
+  let scrollSyncRaf = 0;
+  carousel.addEventListener("scroll", () => {
+    if (scrollSyncRaf) return;
+    scrollSyncRaf = requestAnimationFrame(() => {
+      scrollSyncRaf = 0;
+      const i = viewIndexFromScroll();
+      if (i !== settings.view) {
+        settings.view = i;
+        persist();
+        updateDots(i);
+      }
+    });
+  }, { passive: true });
+
+  dotsEl.addEventListener("click", (e) => {
+    const dot = e.target.closest(".dot");
+    if (!dot) return;
+    const i = parseInt(dot.dataset.view, 10);
+    setView(i, true);
+  });
+
+  function setView(i, smooth) {
+    settings.view = i;
+    persist();
+    updateDots(i);
+    const x = i * carousel.clientWidth;
+    carousel.scrollTo({ left: x, behavior: smooth ? "smooth" : "auto" });
+  }
+  function updateDots(i) {
+    for (const d of dotsEl.querySelectorAll(".dot")) {
+      d.classList.toggle("active", parseInt(d.dataset.view, 10) === i);
+    }
+  }
+  // After a layout settle / resize, snap to the persisted view.
+  window.addEventListener("resize", () => {
+    carousel.scrollTo({ left: settings.view * carousel.clientWidth, behavior: "auto" });
+  });
+
   // -- Two-finger gestures: vertical pan → tilt, pinch → digit size -----
 
   setupGestures();
 
   function setupGestures() {
     let g = null;
-
     const onStart = (e) => {
       if (e.touches.length === 2) {
         const [a, b] = e.touches;
@@ -197,7 +272,6 @@
         g = null;
       }
     };
-
     const onMove = (e) => {
       if (!g || e.touches.length !== 2) return;
       const [a, b] = e.touches;
@@ -205,10 +279,8 @@
       const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
       const dy = midY - g.midY;
       const dd = dist - g.dist;
-
       const nextTilt  = clamp(g.startTilt  - dy / 3,   0, 60);
       const nextScale = clamp(g.startScale + dd / 220, 0.5, 2.2);
-
       if (Math.abs(nextTilt - settings.tilt) > 0.1) {
         settings.tilt = nextTilt;
         tiltRange.value = Math.round(nextTilt);
@@ -220,14 +292,9 @@
       }
       e.preventDefault();
     };
-
     const onEnd = (e) => {
-      if (g && e.touches.length < 2) {
-        g = null;
-        persist();
-      }
+      if (g && e.touches.length < 2) { g = null; persist(); }
     };
-
     stage.addEventListener("touchstart",  onStart, { passive: false });
     stage.addEventListener("touchmove",   onMove,  { passive: false });
     stage.addEventListener("touchend",    onEnd);
@@ -245,6 +312,7 @@
     startBtn.textContent = "Stop";
     startBtn.classList.remove("primary");
     setModeButtonsDisabled(true);
+    panel.classList.add("running");
     requestWakeLock();
     tick();
   }
@@ -256,6 +324,7 @@
     startBtn.textContent = "Start";
     startBtn.classList.add("primary");
     setModeButtonsDisabled(false);
+    panel.classList.remove("running");
     releaseWakeLock();
   }
 
@@ -264,6 +333,12 @@
     const elapsed = performance.now() - startedAt;
     updateDisplay(elapsed);
     fireCues(elapsed);
+  }
+
+  function setLabel(text) {
+    labelEl.textContent = text;
+    labelDigit.textContent = text;
+    labelSeg.textContent = text;
   }
 
   function updateDisplay(elapsed) {
@@ -275,44 +350,43 @@
     const totalSec = Math.floor(absMs / 1000);
     const mm = Math.floor(totalSec / 60);
     const ss = totalSec % 60;
-    timeEl.textContent = `${over ? "+" : ""}${mm}:${ss.toString().padStart(2, "0")}`;
 
+    // Ring view keeps the compact "M:SS" / "+M:SS" formatting.
+    timeRing.textContent    = `${over ? "+" : ""}${mm}:${ss.toString().padStart(2, "0")}`;
+    // Digital view: zero-padded MM:SS plus + sign.
+    timeDigital.textContent = `${over ? "+" : ""}${mm.toString().padStart(2, "0")}:${ss.toString().padStart(2, "0")}`;
+
+    // Segmented view: render MM:SS, plus indicator visible in overtime.
+    renderSegmented(mm, ss, over);
+
+    // Ring progress
     const frac = Math.min(1, Math.max(0, elapsed / targetMs));
     progress.setAttribute("stroke-dashoffset", String(RING_TOTAL * (1 - frac)));
-
     if (over) {
-      // Overtime ring fills over 60s of overtime regardless of grace length.
       const overFrac = Math.min(1, (elapsed - targetMs) / 60_000);
       overtime.setAttribute("stroke-dashoffset", String(RING_TOTAL * (1 - overFrac)));
     } else {
       overtime.setAttribute("stroke-dashoffset", String(RING_TOTAL));
     }
 
-    // Five colour phases:
-    //   first minute      → dark green
-    //   middle            → light green
-    //   last minute       → orange
-    //   overtime ≤ grace  → orange
-    //   overtime > grace  → red
-    // (For the 1:00 mode this collapses to dark green / orange / red,
-    //  because there is no "middle" or "last minute before target".)
-    tiltEl.classList.remove("state-darkgreen", "state-lightgreen", "state-orange", "state-red");
+    // Five colour phases (state lives on .stage so all views inherit)
+    stage.classList.remove("state-darkgreen", "state-lightgreen", "state-orange", "state-red");
     let labelText;
     if (elapsed < 60_000) {
-      tiltEl.classList.add("state-darkgreen");
+      stage.classList.add("state-darkgreen");
       labelText = running ? "speaking" : "ready";
     } else if (!over && remaining > 60_000) {
-      tiltEl.classList.add("state-lightgreen");
+      stage.classList.add("state-lightgreen");
       labelText = "speaking";
     } else if (elapsed < targetMs + graceMs) {
-      tiltEl.classList.add("state-orange");
+      stage.classList.add("state-orange");
       labelText = over ? "overtime" : "1 min left";
     } else {
-      tiltEl.classList.add("state-red");
+      stage.classList.add("state-red");
       labelText = "stop!";
     }
     if (!running && elapsed === 0) labelText = "ready";
-    labelEl.textContent = labelText;
+    setLabel(labelText);
   }
 
   // -- Audio cues -------------------------------------------------------
@@ -337,25 +411,21 @@
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
       audioCtx = new Ctx();
-      // Warm-up (iOS audio unlock).
       const b = audioCtx.createBuffer(1, 1, 22050);
       const s = audioCtx.createBufferSource();
       s.buffer = b; s.connect(audioCtx.destination); s.start(0);
     } catch (e) { /* ignore */ }
   }
 
-  // Synthesise one bell strike at audioCtx time `t`. Uses several detuned
-  // sine partials at non-integer ratios (struck-bell character) plus a
-  // short attack transient.
   function playBell(t) {
-    const f0 = 520;  // fundamental ~C5
+    const f0 = 520;
     const partials = [
-      { ratio: 0.5,  amp: 0.18, decay: 2.6 },  // hum tone
-      { ratio: 1.0,  amp: 0.45, decay: 2.0 },  // strike / prime
-      { ratio: 2.0,  amp: 0.28, decay: 1.4 },  // tierce-ish
-      { ratio: 2.76, amp: 0.22, decay: 1.0 },  // quint
-      { ratio: 4.2,  amp: 0.12, decay: 0.6 },  // upper partial
-      { ratio: 5.4,  amp: 0.07, decay: 0.4 },  // upper partial
+      { ratio: 0.5,  amp: 0.18, decay: 2.6 },
+      { ratio: 1.0,  amp: 0.45, decay: 2.0 },
+      { ratio: 2.0,  amp: 0.28, decay: 1.4 },
+      { ratio: 2.76, amp: 0.22, decay: 1.0 },
+      { ratio: 4.2,  amp: 0.12, decay: 0.6 },
+      { ratio: 5.4,  amp: 0.07, decay: 0.4 },
     ];
     for (const p of partials) {
       const o = audioCtx.createOscillator();
@@ -371,7 +441,6 @@
     }
   }
 
-  // Play `count` bell strikes in sequence, ~0.5s apart.
   function playBellSequence(count) {
     if (!audioCtx) ensureAudio();
     if (!audioCtx) return;
@@ -387,13 +456,13 @@
     try {
       wakeLock = await navigator.wakeLock.request("screen");
       wakeLock.addEventListener("release", () => { wakeLock = null; });
-    } catch (e) { /* permission may be required */ }
+    } catch (e) {}
   }
   function releaseWakeLock() {
     if (wakeLock) { try { wakeLock.release(); } catch {} wakeLock = null; }
   }
 
-  // -- SVG decorations --------------------------------------------------
+  // -- SVG ring ticks (orange/red marker dots removed) ------------------
 
   function polar(cx, cy, r, deg) {
     const rad = (deg - 90) * Math.PI / 180;
@@ -413,38 +482,104 @@
       const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
       line.setAttribute("x1", x1); line.setAttribute("y1", y1);
       line.setAttribute("x2", x2); line.setAttribute("y2", y2);
-      line.setAttribute("class", "major");
       ticksG.appendChild(line);
     }
   }
 
-  function buildMarkers() {
-    markersG.innerHTML = "";
-    const totalSec = targetMs / 1000;
-    const cues = currentMode().cues;
-    for (const c of cues) {
-      const atSec = c.at / 1000;
-      const frac = atSec / totalSec;
-      if (frac <= 0 || frac > 1) continue;  // cues past target are on the overtime ring
-      const angle = frac * 360;
-      const [x, y] = polar(200, 200, 170, angle);
-      const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      dot.setAttribute("cx", x); dot.setAttribute("cy", y);
-      dot.setAttribute("r", c.count >= 2 ? 5 : 4);
-      if (c.count >= 2) dot.setAttribute("class", "warn");
-      markersG.appendChild(dot);
-    }
+  // -- Segmented display (11 elements per digit) ------------------------
+  //
+  // Each digit is built from 11 SVG shapes: 7 standard segments (a-g)
+  // and 4 corner accents (h-k). For every digit 0-9 a subset is lit; the
+  // remainder stays as a dim ghost outline so the structure of all 11
+  // elements remains visible.
+
+  function buildSegmentedDisplay() {
+    segSlots.innerHTML = "";
+    const NS = "http://www.w3.org/2000/svg";
+    // Centre the MM:SS layout in the 560-wide viewBox.
+    // Layout: digit  digit  colon  digit  digit
+    // Widths:  100    100    40    100    100   = 440 + gaps
+    const gap = 20;
+    const totalW = 4 * SEG_W + COLON_W + 4 * gap;
+    let x = (560 - totalW) / 2;
+
+    const makeDigit = (slotIndex) => {
+      const g = document.createElementNS(NS, "g");
+      g.setAttribute("transform", `translate(${x}, 20)`);
+      g.setAttribute("class", "digit");
+      g.dataset.slot = String(slotIndex);
+      // 7 segments
+      for (const seg of "abcdefg") {
+        const p = document.createElementNS(NS, "path");
+        p.setAttribute("d", SEG_PATHS[seg]);
+        p.setAttribute("class", "seg");
+        p.dataset.seg = seg;
+        g.appendChild(p);
+      }
+      // 4 corner accents
+      for (const c of "hijk") {
+        const p = document.createElementNS(NS, "path");
+        p.setAttribute("d", CORNER_PATHS[c]);
+        p.setAttribute("class", "corner");
+        p.dataset.seg = c;
+        g.appendChild(p);
+      }
+      segSlots.appendChild(g);
+      x += SEG_W + gap;
+    };
+
+    const makeColon = () => {
+      const g = document.createElementNS(NS, "g");
+      g.setAttribute("transform", `translate(${x}, 20)`);
+      g.setAttribute("class", "colon");
+      for (const cy of [50, 110]) {
+        const dot = document.createElementNS(NS, "circle");
+        dot.setAttribute("cx", "20");
+        dot.setAttribute("cy", String(cy));
+        dot.setAttribute("r", "8");
+        dot.setAttribute("class", "colon-dot");
+        g.appendChild(dot);
+      }
+      segSlots.appendChild(g);
+      x += COLON_W + gap;
+    };
+
+    makeDigit(0);
+    makeDigit(1);
+    makeColon();
+    makeDigit(2);
+    makeDigit(3);
+  }
+
+  function renderSegmented(mm, ss, over) {
+    const digits = [
+      Math.floor(mm / 10),
+      mm % 10,
+      Math.floor(ss / 10),
+      ss % 10,
+    ].map(d => String(d));
+    const slots = segSlots.querySelectorAll(".digit");
+    slots.forEach((slot, i) => {
+      const pat = DIGIT_PATTERN[digits[i]] || DIGIT_PATTERN[" "];
+      for (const path of slot.querySelectorAll("path")) {
+        const seg = path.dataset.seg;
+        const lit = pat.segs.includes(seg) || pat.corners.includes(seg);
+        path.classList.toggle("on", lit);
+      }
+    });
+    segmented.classList.add("lit");
+    segmented.classList.toggle("overtime", over);
   }
 
   // -- Misc -------------------------------------------------------------
 
   function applyTilt() {
-    tiltEl.style.setProperty("--tilt", settings.tilt + "deg");
-    tiltEl.style.setProperty("--tilt-sign", settings.flipped ? "1" : "-1");
+    stage.style.setProperty("--tilt", settings.tilt + "deg");
+    stage.style.setProperty("--tilt-sign", settings.flipped ? "1" : "-1");
   }
 
   function applyDigitScale() {
-    tiltEl.style.setProperty("--digit-scale", String(settings.digitScale));
+    stage.style.setProperty("--digit-scale", String(settings.digitScale));
   }
 
   if ("serviceWorker" in navigator) {

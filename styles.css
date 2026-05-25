@@ -26,7 +26,6 @@ html, body {
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
 }
 
 body {
@@ -37,39 +36,73 @@ body {
   min-height: 100dvh;
 }
 
+/* Two-finger gestures and view switching live on the stage. Stage holds
+   the tilt + digit-scale CSS variables and the colour-phase state class. */
 .stage {
-  /* Two-finger gestures are handled here. Disable browser pan/zoom so the
-     gesture handler owns multi-touch input. */
-  touch-action: none;
+  --tilt: 35deg;
+  --tilt-sign: -1;
+  --digit-scale: 1;
+  --ring-color: var(--green-dark);
+  touch-action: pan-x;            /* allow horizontal swipe scroll; vertical owned by us */
   width: 100%;
   max-width: 520px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 14px;
+  gap: 10px;
 }
 
-/* Only the circle + digits tilt. Controls underneath stay flat. */
-.tilt {
-  --tilt: 35deg;
-  --tilt-sign: -1;
-  --digit-scale: 1;
+.stage.state-darkgreen  { --ring-color: var(--green-dark); }
+.stage.state-lightgreen { --ring-color: var(--green-light); }
+.stage.state-orange     { --ring-color: var(--orange); }
+.stage.state-red        { --ring-color: var(--red); }
+
+/* ----- Carousel: horizontal scroll-snap between 3 views ----------------- */
+
+.carousel {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+.carousel::-webkit-scrollbar { display: none; }
+
+.view {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Per-view tilt wrapper — perspective + rotateX so the content reads
+   upright when glanced at from a standing angle. Bottom edge stays
+   anchored, top lifts toward the viewer. */
+.tilt-wrap {
+  width: 100%;
   perspective: 900px;
   perspective-origin: 50% 60%;
-  width: 100%;
-  align-self: center;
-  max-width: 480px;
+  transform-style: preserve-3d;
 }
+.tilt-wrap > * {
+  transform: rotateX(calc(var(--tilt) * var(--tilt-sign)));
+  transform-origin: 50% 100%;
+  transition: transform 160ms ease-out;
+  will-change: transform;
+}
+
+/* ----- View 0: Ring + digits ------------------------------------------- */
 
 .timer-wrap {
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
-  transform: rotateX(calc(var(--tilt) * var(--tilt-sign)));
-  transform-origin: 50% 100%;
-  transform-style: preserve-3d;
-  will-change: transform;
-  transition: transform 160ms ease-out;
+  margin: 0 auto;
+  max-width: 480px;
 }
 
 .ring {
@@ -88,7 +121,7 @@ body {
 
 .ring .progress {
   fill: none;
-  stroke: var(--ring-color, var(--green-dark));
+  stroke: var(--ring-color);
   stroke-width: 26;
   stroke-linecap: round;
   transition: stroke 200ms ease;
@@ -97,41 +130,25 @@ body {
 
 .ring .overtime {
   fill: none;
-  stroke: var(--ring-color, var(--orange));
+  stroke: var(--ring-color);
   stroke-width: 6;
   opacity: 0;
   transition: opacity 200ms ease, stroke 200ms ease;
 }
 
-.ring .ticks line {
-  stroke: #2a3340;
-  stroke-width: 2;
-}
+.stage.state-orange .ring .overtime,
+.stage.state-red    .ring .overtime { opacity: 0.95; }
 
-.ring .ticks line.major {
-  stroke: #3a4554;
-  stroke-width: 3;
-}
-
-.ring .markers circle { fill: var(--orange); }
-.ring .markers circle.warn { fill: var(--red); }
-
-/* Five colour phases mapped to CSS variable.  The active state class on
-   .tilt drives both the main progress ring and the outer overtime ring. */
-.tilt                     { --ring-color: var(--green-dark); }
-.tilt.state-darkgreen     { --ring-color: var(--green-dark); }
-.tilt.state-lightgreen    { --ring-color: var(--green-light); }
-.tilt.state-orange        { --ring-color: var(--orange); }
-.tilt.state-red           { --ring-color: var(--red); }
-
-.tilt.state-orange .ring .overtime,
-.tilt.state-red    .ring .overtime { opacity: 0.95; }
-
-.tilt.state-red .timer-wrap { animation: pulse 1s ease-in-out infinite; }
+.stage.state-red .timer-wrap { animation: pulse 1s ease-in-out infinite; }
 
 @keyframes pulse {
   0%, 100% { filter: drop-shadow(0 0 0 rgba(255,59,48,0)); }
   50%      { filter: drop-shadow(0 0 14px rgba(255,59,48,0.7)); }
+}
+
+.ring .ticks line {
+  stroke: #3a4554;
+  stroke-width: 3;
 }
 
 .readout {
@@ -148,10 +165,14 @@ body {
   font-feature-settings: "tnum" 1;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
-  font-size: calc(clamp(56px, 18vw, 110px) * var(--digit-scale, 1));
   letter-spacing: -0.02em;
   line-height: 1;
-  transition: font-size 80ms linear;
+  color: var(--fg);
+  transition: font-size 80ms linear, color 200ms ease;
+}
+
+.time-ring {
+  font-size: calc(clamp(56px, 18vw, 110px) * var(--digit-scale, 1));
 }
 
 .label {
@@ -162,15 +183,120 @@ body {
   letter-spacing: 0.18em;
 }
 
-.tilt.state-over .label { color: var(--red); }
+.stage.state-orange .label,
+.stage.state-orange .time-digital { color: var(--orange); }
+.stage.state-red    .label,
+.stage.state-red    .time-digital { color: var(--red); }
 
-/* Flat panel underneath -------------------------------------------------- */
+/* ----- View 1: Digital only ------------------------------------------- */
+
+.digital-wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.time-digital {
+  font-size: calc(clamp(100px, 38vw, 260px) * var(--digit-scale, 1));
+  font-weight: 800;
+  color: var(--green-light);
+}
+
+.stage.state-darkgreen  .time-digital { color: var(--green-dark); }
+.stage.state-lightgreen .time-digital { color: var(--green-light); }
+
+/* ----- View 2: 11-element segmented clock ----------------------------- */
+
+.segmented-wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.segmented {
+  width: calc(100% * var(--digit-scale, 1));
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* segment "off" state — barely visible ghost outline so the 11-element
+   structure of every digit is always perceptible. "on" state lights up
+   the segment in the current ring colour. */
+.segmented .seg {
+  fill: rgba(255, 255, 255, 0.045);
+  transition: fill 120ms ease;
+}
+.segmented .seg.on { fill: var(--ring-color); }
+.segmented .corner {
+  fill: rgba(255, 255, 255, 0.04);
+  transition: fill 120ms ease;
+}
+.segmented .corner.on { fill: var(--ring-color); }
+
+.segmented .colon-dot {
+  fill: rgba(255, 255, 255, 0.08);
+}
+.segmented.lit .colon-dot { fill: var(--ring-color); }
+
+.segmented .plus {
+  fill: var(--ring-color);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.segmented.overtime .plus { opacity: 1; }
+
+/* ----- View dots -------------------------------------------------------- */
+
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: -4px;
+}
+
+.dot {
+  appearance: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2a313b;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background 150ms ease, transform 150ms ease;
+}
+
+.dot.active {
+  background: var(--accent);
+  transform: scale(1.4);
+}
+
+/* ----- Bottom panel ---------------------------------------------------- */
 
 .panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  transition: filter 280ms ease, opacity 280ms ease;
 }
+
+/* Blur the control panel while the timer is running; controls still
+   register taps. The user tap on the blurred area lifts the blur via
+   :active so they can aim at the Stop button precisely. */
+.panel.running        { filter: blur(4px); opacity: 0.5; }
+.panel.running:active,
+.panel.running:focus-within { filter: blur(0);      opacity: 1; }
 
 .modes {
   display: grid;
@@ -212,12 +338,6 @@ body {
   letter-spacing: -0.01em;
 }
 
-@media (max-width: 380px) {
-  .mode .mode-label { font-size: 10px; }
-  .mode .mode-sub   { font-size: 15px; }
-  .mode { padding: 8px 3px; }
-}
-
 .mode.active {
   background: rgba(79, 195, 255, 0.12);
   border-color: rgba(79, 195, 255, 0.35);
@@ -248,8 +368,8 @@ body {
 
 .btn:active { transform: scale(0.97); }
 .btn.primary { background: var(--accent); border-color: transparent; color: #002233; }
-.btn.ghost { background: transparent; }
-.btn.small { padding: 10px 14px; font-size: 14px; min-width: 0; }
+.btn.ghost   { background: transparent; }
+.btn.small   { padding: 10px 14px; font-size: 14px; min-width: 0; }
 
 .row {
   display: flex;
@@ -295,7 +415,6 @@ body {
 
 .toggle input { transform: scale(1.3); accent-color: var(--accent); }
 
-/* Big chunky slider */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
@@ -335,4 +454,7 @@ input[type="range"]::-moz-range-thumb {
 
 @media (max-width: 380px) {
   .btn { padding: 12px 16px; font-size: 16px; min-width: 96px; }
+  .mode .mode-label { font-size: 10px; }
+  .mode .mode-sub   { font-size: 15px; }
+  .mode { padding: 8px 3px; }
 }
