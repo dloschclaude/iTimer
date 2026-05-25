@@ -4,10 +4,11 @@
   --fg: #e9eef5;
   --muted: #8893a3;
   --track: #1f2630;
-  --green: #2ecc71;
-  --amber: #f5b400;
-  --red: #ff3b30;
-  --accent: #4fc3ff;
+  --green-dark:  #0e7a3a;
+  --green-light: #2ecc71;
+  --orange:      #ff9500;
+  --red:         #ff3b30;
+  --accent:      #4fc3ff;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -87,7 +88,7 @@ body {
 
 .ring .progress {
   fill: none;
-  stroke: var(--green);
+  stroke: var(--ring-color, var(--green-dark));
   stroke-width: 26;
   stroke-linecap: round;
   transition: stroke 200ms ease;
@@ -96,9 +97,10 @@ body {
 
 .ring .overtime {
   fill: none;
-  stroke: var(--red);
+  stroke: var(--ring-color, var(--orange));
   stroke-width: 6;
-  opacity: 0.95;
+  opacity: 0;
+  transition: opacity 200ms ease, stroke 200ms ease;
 }
 
 .ring .ticks line {
@@ -111,15 +113,21 @@ body {
   stroke-width: 3;
 }
 
-.ring .markers circle { fill: var(--amber); }
+.ring .markers circle { fill: var(--orange); }
 .ring .markers circle.warn { fill: var(--red); }
 
-.tilt.state-green   .ring .progress { stroke: var(--green); }
-.tilt.state-amber   .ring .progress { stroke: var(--amber); }
-.tilt.state-red     .ring .progress { stroke: var(--red); }
-.tilt.state-over    .ring .progress { stroke: var(--red); opacity: 0.85; }
+/* Five colour phases mapped to CSS variable.  The active state class on
+   .tilt drives both the main progress ring and the outer overtime ring. */
+.tilt                     { --ring-color: var(--green-dark); }
+.tilt.state-darkgreen     { --ring-color: var(--green-dark); }
+.tilt.state-lightgreen    { --ring-color: var(--green-light); }
+.tilt.state-orange        { --ring-color: var(--orange); }
+.tilt.state-red           { --ring-color: var(--red); }
 
-.tilt.state-over .timer-wrap { animation: pulse 1s ease-in-out infinite; }
+.tilt.state-orange .ring .overtime,
+.tilt.state-red    .ring .overtime { opacity: 0.95; }
+
+.tilt.state-red .timer-wrap { animation: pulse 1s ease-in-out infinite; }
 
 @keyframes pulse {
   0%, 100% { filter: drop-shadow(0 0 0 rgba(255,59,48,0)); }
@@ -167,7 +175,7 @@ body {
 .modes {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  gap: 6px;
   padding: 6px;
   background: rgba(255,255,255,0.03);
   border: 1px solid #1d232c;
@@ -179,12 +187,35 @@ body {
   background: transparent;
   border: 1px solid transparent;
   color: var(--muted);
-  font: 600 16px/1 -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
-  font-variant-numeric: tabular-nums;
-  padding: 10px 6px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  padding: 9px 6px;
   border-radius: 10px;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.mode .mode-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  opacity: 0.8;
+}
+
+.mode .mode-sub {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+@media (max-width: 380px) {
+  .mode .mode-label { font-size: 10px; }
+  .mode .mode-sub   { font-size: 15px; }
+  .mode { padding: 8px 3px; }
 }
 
 .mode.active {
@@ -304,5 +335,4 @@ input[type="range"]::-moz-range-thumb {
 
 @media (max-width: 380px) {
   .btn { padding: 12px 16px; font-size: 16px; min-width: 96px; }
-  .mode { font-size: 14px; padding: 9px 4px; }
 }

@@ -1,13 +1,59 @@
 // iTimer — countdown / count-up timer for OPD and BP debates.
-// Counts down from a target duration (default 7:00). After expiry it keeps
-// running, displaying overtime. Optional audio cues mark debate milestones.
+// Counts down from a target duration. After expiry it keeps running,
+// displaying overtime. Optional bell cues mark debate milestones per mode.
 
 (() => {
   "use strict";
 
-  const STORAGE_KEY = "itimer.settings.v2";
-  const MODES = ["07:15", "07:00", "03:30", "01:00"];
-  const DEFAULT_MODE = "07:00";
+  const STORAGE_KEY = "itimer.settings.v3";
+  const DEFAULT_MODE = "bp-700";
+  const GRACE_MS = 15_000;
+
+  // Each mode: target duration, grace window, and a list of bell cues.
+  // `at` is elapsed milliseconds since start. `count` is the number of
+  // bell strikes played in sequence.
+  const MODES = {
+    "bp-700": {
+      label: "BP / OPD 7:00",
+      targetMs: 7 * 60_000,
+      graceMs: GRACE_MS,
+      cues: [
+        { at: 1 * 60_000,             count: 1 },   // 1:00 elapsed
+        { at: 6 * 60_000,             count: 1 },   // 6:00 elapsed (1 min left)
+        { at: 7 * 60_000,             count: 2 },   // 7:00 elapsed (time's up)
+        { at: 7 * 60_000 + 15_000,    count: 1 },   // 7:15 elapsed (grace end)
+      ],
+    },
+    "opd-330": {
+      label: "OPD 3:30",
+      targetMs: 3 * 60_000 + 30_000,
+      graceMs: GRACE_MS,
+      cues: [
+        { at: 1 * 60_000,             count: 1 },   // 1:00 elapsed
+        { at: 3 * 60_000,             count: 2 },   // 3:00 elapsed
+        { at: 3 * 60_000 + 15_000,    count: 1 },   // 3:15 elapsed
+      ],
+    },
+    "opd-100": {
+      label: "OPD 1:00",
+      targetMs: 60_000,
+      graceMs: GRACE_MS,
+      cues: [
+        { at: 60_000,                 count: 2 },   // 1:00 elapsed
+        { at: 75_000,                 count: 1 },   // 1:15 elapsed (grace end)
+      ],
+    },
+    "prep-1500": {
+      label: "Prep 15:00",
+      targetMs: 15 * 60_000,
+      graceMs: GRACE_MS,
+      cues: [
+        { at: 10 * 60_000,            count: 1 },   // 10:00 elapsed (5 min left)
+        { at: 14 * 60_000,            count: 1 },   // 14:00 elapsed (1 min left)
+        { at: 15 * 60_000,            count: 2 },   // 15:00 elapsed (time's up)
+      ],
+    },
+  };
 
   // DOM
   const tiltEl    = document.getElementById("tilt");
@@ -30,17 +76,14 @@
     { mode: DEFAULT_MODE, sound: true, tilt: 35, flipped: false, digitScale: 1 },
     safeParse(localStorage.getItem(STORAGE_KEY))
   );
-  if (!MODES.includes(settings.mode)) settings.mode = DEFAULT_MODE;
+  if (!MODES[settings.mode]) settings.mode = DEFAULT_MODE;
 
   function persist() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch {}
   }
   function safeParse(s) { try { return JSON.parse(s) || {}; } catch { return {}; } }
 
-  function modeToMs(mode) {
-    const [mm, ss] = mode.split(":").map(Number);
-    return (mm * 60 + ss) * 1000;
-  }
+  function currentMode() { return MODES[settings.mode]; }
 
   // Apply persisted settings to UI
   soundTgl.checked = !!settings.sound;
@@ -50,7 +93,7 @@
   applyDigitScale();
 
   // Timer state
-  let targetMs   = modeToMs(settings.mode);
+  let targetMs   = currentMode().targetMs;
   let startedAt  = 0;
   let running    = false;
   let rafId      = 0;
@@ -69,12 +112,12 @@
     const btn = e.target.closest(".mode");
     if (!btn || btn.disabled) return;
     const mode = btn.dataset.mode;
-    if (!MODES.includes(mode)) return;
+    if (!MODES[mode]) return;
     settings.mode = mode;
     persist();
     setActiveMode(mode);
     if (!running) {
-      targetMs = modeToMs(mode);
+      targetMs = MODES[mode].targetMs;
       firedCues.clear();
       buildTicks();
       buildMarkers();
@@ -104,12 +147,10 @@
   resetBtn.addEventListener("click", () => {
     stop();
     firedCues.clear();
-    targetMs = modeToMs(settings.mode);
+    targetMs = currentMode().targetMs;
     buildTicks();
     buildMarkers();
     updateDisplay(0);
-    tiltEl.classList.remove("state-amber", "state-red", "state-over");
-    tiltEl.classList.add("state-green");
     labelEl.textContent = "ready";
   });
 
@@ -162,12 +203,10 @@
       const [a, b] = e.touches;
       const midY = (a.clientY + b.clientY) / 2;
       const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-      const dy = midY - g.midY;     // positive = fingers moved down
-      const dd = dist - g.dist;     // positive = fingers spread apart
+      const dy = midY - g.midY;
+      const dd = dist - g.dist;
 
-      // Vertical swipe up (negative dy) increases tilt. 3 px ≈ 1°.
-      const nextTilt = clamp(g.startTilt - dy / 3, 0, 60);
-      // Pinch out (positive dd) increases digit size. 200 px swing ≈ 1.0.
+      const nextTilt  = clamp(g.startTilt  - dy / 3,   0, 60);
       const nextScale = clamp(g.startScale + dd / 220, 0.5, 2.2);
 
       if (Math.abs(nextTilt - settings.tilt) > 0.1) {
@@ -200,7 +239,7 @@
   // -- Core timer loop --------------------------------------------------
 
   function start() {
-    targetMs = modeToMs(settings.mode);
+    targetMs = currentMode().targetMs;
     startedAt = performance.now();
     running = true;
     startBtn.textContent = "Stop";
@@ -228,6 +267,8 @@
   }
 
   function updateDisplay(elapsed) {
+    const mode = currentMode();
+    const graceMs = mode.graceMs;
     const remaining = targetMs - elapsed;
     const over = remaining < 0;
     const absMs = Math.abs(over ? -remaining : remaining);
@@ -240,48 +281,48 @@
     progress.setAttribute("stroke-dashoffset", String(RING_TOTAL * (1 - frac)));
 
     if (over) {
+      // Overtime ring fills over 60s of overtime regardless of grace length.
       const overFrac = Math.min(1, (elapsed - targetMs) / 60_000);
       overtime.setAttribute("stroke-dashoffset", String(RING_TOTAL * (1 - overFrac)));
     } else {
       overtime.setAttribute("stroke-dashoffset", String(RING_TOTAL));
     }
 
-    tiltEl.classList.remove("state-green", "state-amber", "state-red", "state-over");
-    if (over) {
-      tiltEl.classList.add("state-over");
-      labelEl.textContent = "overtime";
-    } else if (remaining <= 3_000) {
-      tiltEl.classList.add("state-red");
-      labelEl.textContent = "time!";
-    } else if (remaining <= 60_000) {
-      tiltEl.classList.add("state-amber");
-      labelEl.textContent = "1 min left";
+    // Five colour phases:
+    //   first minute      → dark green
+    //   middle            → light green
+    //   last minute       → orange
+    //   overtime ≤ grace  → orange
+    //   overtime > grace  → red
+    // (For the 1:00 mode this collapses to dark green / orange / red,
+    //  because there is no "middle" or "last minute before target".)
+    tiltEl.classList.remove("state-darkgreen", "state-lightgreen", "state-orange", "state-red");
+    let labelText;
+    if (elapsed < 60_000) {
+      tiltEl.classList.add("state-darkgreen");
+      labelText = running ? "speaking" : "ready";
+    } else if (!over && remaining > 60_000) {
+      tiltEl.classList.add("state-lightgreen");
+      labelText = "speaking";
+    } else if (elapsed < targetMs + graceMs) {
+      tiltEl.classList.add("state-orange");
+      labelText = over ? "overtime" : "1 min left";
     } else {
-      tiltEl.classList.add("state-green");
-      labelEl.textContent = running ? "speaking" : "ready";
+      tiltEl.classList.add("state-red");
+      labelText = "stop!";
     }
+    if (!running && elapsed === 0) labelText = "ready";
+    labelEl.textContent = labelText;
   }
 
   // -- Audio cues -------------------------------------------------------
 
-  function cues() {
-    const t = Math.round(targetMs / 1000);
-    return [
-      { id: "6min-left", at: t - 6 * 60, type: "peep" },
-      { id: "1min-left", at: t - 60,    type: "ping" },
-      { id: "last-3a",   at: t - 3,     type: "ping" },
-      { id: "last-3b",   at: t - 2,     type: "ping" },
-      { id: "last-3c",   at: t - 1,     type: "ping" },
-      { id: "plus-15",   at: t + 15,    type: "peep" },
-    ].filter(c => c.at > 0);
-  }
-
   function fireCues(elapsedMs) {
-    const sec = Math.floor(elapsedMs / 1000);
-    for (const c of cues()) {
-      if (sec >= c.at && !firedCues.has(c.id)) {
-        firedCues.add(c.id);
-        if (settings.sound) playCue(c.type);
+    const cues = currentMode().cues;
+    for (const c of cues) {
+      if (elapsedMs >= c.at && !firedCues.has(c.at)) {
+        firedCues.add(c.at);
+        if (settings.sound) playBellSequence(c.count);
       }
     }
   }
@@ -296,42 +337,47 @@
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
       audioCtx = new Ctx();
+      // Warm-up (iOS audio unlock).
       const b = audioCtx.createBuffer(1, 1, 22050);
       const s = audioCtx.createBufferSource();
-      s.buffer = b;
-      s.connect(audioCtx.destination);
-      s.start(0);
+      s.buffer = b; s.connect(audioCtx.destination); s.start(0);
     } catch (e) { /* ignore */ }
   }
 
-  function playCue(kind) {
+  // Synthesise one bell strike at audioCtx time `t`. Uses several detuned
+  // sine partials at non-integer ratios (struck-bell character) plus a
+  // short attack transient.
+  function playBell(t) {
+    const f0 = 520;  // fundamental ~C5
+    const partials = [
+      { ratio: 0.5,  amp: 0.18, decay: 2.6 },  // hum tone
+      { ratio: 1.0,  amp: 0.45, decay: 2.0 },  // strike / prime
+      { ratio: 2.0,  amp: 0.28, decay: 1.4 },  // tierce-ish
+      { ratio: 2.76, amp: 0.22, decay: 1.0 },  // quint
+      { ratio: 4.2,  amp: 0.12, decay: 0.6 },  // upper partial
+      { ratio: 5.4,  amp: 0.07, decay: 0.4 },  // upper partial
+    ];
+    for (const p of partials) {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.connect(g).connect(audioCtx.destination);
+      o.type = "sine";
+      o.frequency.value = f0 * p.ratio;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(p.amp, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + p.decay);
+      o.start(t);
+      o.stop(t + p.decay + 0.05);
+    }
+  }
+
+  // Play `count` bell strikes in sequence, ~0.5s apart.
+  function playBellSequence(count) {
     if (!audioCtx) ensureAudio();
     if (!audioCtx) return;
     if (audioCtx.state === "suspended") audioCtx.resume();
-
-    const now = audioCtx.currentTime;
-    const o = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    o.connect(g).connect(audioCtx.destination);
-
-    if (kind === "peep") {
-      o.type = "sine";
-      o.frequency.value = 880;
-      g.gain.setValueAtTime(0.0001, now);
-      g.gain.exponentialRampToValueAtTime(0.5, now + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
-      o.start(now);
-      o.stop(now + 0.24);
-    } else {
-      o.type = "triangle";
-      o.frequency.setValueAtTime(1480, now);
-      o.frequency.exponentialRampToValueAtTime(1100, now + 0.18);
-      g.gain.setValueAtTime(0.0001, now);
-      g.gain.exponentialRampToValueAtTime(0.55, now + 0.005);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
-      o.start(now);
-      o.stop(now + 0.34);
-    }
+    const t0 = audioCtx.currentTime;
+    for (let i = 0; i < count; i++) playBell(t0 + i * 0.5);
   }
 
   // -- Wake Lock --------------------------------------------------------
@@ -374,20 +420,20 @@
 
   function buildMarkers() {
     markersG.innerHTML = "";
-    const total = targetMs / 1000;
-    const addDot = (atSec, cls) => {
-      const frac = atSec / total;
-      if (frac <= 0 || frac > 1) return;
+    const totalSec = targetMs / 1000;
+    const cues = currentMode().cues;
+    for (const c of cues) {
+      const atSec = c.at / 1000;
+      const frac = atSec / totalSec;
+      if (frac <= 0 || frac > 1) continue;  // cues past target are on the overtime ring
       const angle = frac * 360;
       const [x, y] = polar(200, 200, 170, angle);
-      const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 4);
-      if (cls) c.setAttribute("class", cls);
-      markersG.appendChild(c);
-    };
-    if (total > 6 * 60) addDot(total - 6 * 60, "");
-    if (total > 60)     addDot(total - 60, "warn");
-    addDot(total - 0.001, "warn");
+      const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      dot.setAttribute("cx", x); dot.setAttribute("cy", y);
+      dot.setAttribute("r", c.count >= 2 ? 5 : 4);
+      if (c.count >= 2) dot.setAttribute("class", "warn");
+      markersG.appendChild(dot);
+    }
   }
 
   // -- Misc -------------------------------------------------------------
@@ -401,7 +447,6 @@
     tiltEl.style.setProperty("--digit-scale", String(settings.digitScale));
   }
 
-  // Service worker registration (offline support after Add to Home Screen)
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("sw.js").catch(() => {});
