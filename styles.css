@@ -26,30 +26,28 @@ html, body {
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 body {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
-  padding: calc(var(--safe-top) + 12px) 14px calc(var(--safe-bottom) + 12px);
+  padding: calc(var(--safe-top) + 10px) 12px calc(var(--safe-bottom) + 10px);
   min-height: 100dvh;
 }
 
-/* Two-finger gestures and view switching live on the stage. Stage holds
-   the tilt + digit-scale CSS variables and the colour-phase state class. */
 .stage {
   --tilt: 35deg;
   --tilt-sign: -1;
   --digit-scale: 1;
   --ring-color: var(--green-dark);
-  touch-action: pan-x;            /* allow horizontal swipe scroll; vertical owned by us */
   width: 100%;
-  max-width: 520px;
+  max-width: 460px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 10px;
+  gap: 14px;
 }
 
 .stage.state-darkgreen  { --ring-color: var(--green-dark); }
@@ -57,52 +55,28 @@ body {
 .stage.state-orange     { --ring-color: var(--orange); }
 .stage.state-red        { --ring-color: var(--red); }
 
-/* ----- Carousel: horizontal scroll-snap between 3 views ----------------- */
+/* ----- Tilted ring view ------------------------------------------------ */
 
-.carousel {
-  display: flex;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  width: 100%;
-}
-.carousel::-webkit-scrollbar { display: none; }
-
-.view {
-  flex: 0 0 100%;
-  scroll-snap-align: center;
-  scroll-snap-stop: always;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Per-view tilt wrapper — perspective + rotateX so the content reads
-   upright when glanced at from a standing angle. Bottom edge stays
-   anchored, top lifts toward the viewer. */
 .tilt-wrap {
   width: 100%;
+  display: flex;
+  justify-content: center;
   perspective: 900px;
   perspective-origin: 50% 60%;
   transform-style: preserve-3d;
 }
-.tilt-wrap > * {
+
+.timer-wrap {
+  /* Sized to fit comfortably on a phone without dominating: capped by
+     viewport-width / viewport-height / absolute max so the panel below
+     always has room. */
+  width: min(72vw, 42vh, 320px);
+  aspect-ratio: 1 / 1;
+  position: relative;
   transform: rotateX(calc(var(--tilt) * var(--tilt-sign)));
   transform-origin: 50% 100%;
   transition: transform 160ms ease-out;
   will-change: transform;
-}
-
-/* ----- View 0: Ring + digits ------------------------------------------- */
-
-.timer-wrap {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  margin: 0 auto;
-  max-width: 480px;
 }
 
 .ring {
@@ -168,144 +142,42 @@ body {
   letter-spacing: -0.02em;
   line-height: 1;
   color: var(--fg);
-  transition: font-size 80ms linear, color 200ms ease;
-}
-
-.time-ring {
-  font-size: calc(clamp(56px, 18vw, 110px) * var(--digit-scale, 1));
+  font-size: calc(min(16vw, 84px) * var(--digit-scale, 1));
+  transition: font-size 80ms linear;
 }
 
 .label {
-  margin-top: 8px;
+  margin-top: 6px;
   color: var(--muted);
   text-transform: uppercase;
-  font-size: 14px;
+  font-size: 11px;
   letter-spacing: 0.18em;
 }
 
-.stage.state-orange .label,
-.stage.state-orange .time-digital { color: var(--orange); }
-.stage.state-red    .label,
-.stage.state-red    .time-digital { color: var(--red); }
-
-/* ----- View 1: Digital only ------------------------------------------- */
-
-.digital-wrap {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  max-width: 480px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
-
-.time-digital {
-  font-size: calc(clamp(100px, 38vw, 260px) * var(--digit-scale, 1));
-  font-weight: 800;
-  color: var(--green-light);
-}
-
-.stage.state-darkgreen  .time-digital { color: var(--green-dark); }
-.stage.state-lightgreen .time-digital { color: var(--green-light); }
-
-/* ----- View 2: 11-element segmented clock ----------------------------- */
-
-.segmented-wrap {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  max-width: 480px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-}
-
-.segmented {
-  width: calc(100% * var(--digit-scale, 1));
-  max-width: 100%;
-  height: auto;
-  display: block;
-}
-
-/* segment "off" state — barely visible ghost outline so the 11-element
-   structure of every digit is always perceptible. "on" state lights up
-   the segment in the current ring colour. */
-.segmented .seg {
-  fill: rgba(255, 255, 255, 0.045);
-  transition: fill 120ms ease;
-}
-.segmented .seg.on { fill: var(--ring-color); }
-.segmented .corner {
-  fill: rgba(255, 255, 255, 0.04);
-  transition: fill 120ms ease;
-}
-.segmented .corner.on { fill: var(--ring-color); }
-
-.segmented .colon-dot {
-  fill: rgba(255, 255, 255, 0.08);
-}
-.segmented.lit .colon-dot { fill: var(--ring-color); }
-
-.segmented .plus {
-  fill: var(--ring-color);
-  opacity: 0;
-  transition: opacity 120ms ease;
-}
-.segmented.overtime .plus { opacity: 1; }
-
-/* ----- View dots -------------------------------------------------------- */
-
-.dots {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-top: -4px;
-}
-
-.dot {
-  appearance: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #2a313b;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  transition: background 150ms ease, transform 150ms ease;
-}
-
-.dot.active {
-  background: var(--accent);
-  transform: scale(1.4);
-}
+.stage.state-orange .label { color: var(--orange); }
+.stage.state-red    .label { color: var(--red); }
 
 /* ----- Bottom panel ---------------------------------------------------- */
 
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   transition: filter 280ms ease, opacity 280ms ease;
 }
 
-/* Blur the control panel while the timer is running; controls still
-   register taps. The user tap on the blurred area lifts the blur via
-   :active so they can aim at the Stop button precisely. */
 .panel.running        { filter: blur(4px); opacity: 0.5; }
 .panel.running:active,
-.panel.running:focus-within { filter: blur(0);      opacity: 1; }
+.panel.running:focus-within { filter: blur(0); opacity: 1; }
 
 .modes {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  padding: 6px;
+  gap: 4px;
+  padding: 4px;
   background: rgba(255,255,255,0.03);
   border: 1px solid #1d232c;
-  border-radius: 14px;
+  border-radius: 12px;
 }
 
 .mode {
@@ -313,26 +185,27 @@ body {
   background: transparent;
   border: 1px solid transparent;
   color: var(--muted);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
-  padding: 9px 6px;
-  border-radius: 10px;
+  font-family: inherit;
+  padding: 7px 4px;
+  border-radius: 9px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 
 .mode .mode-label {
-  font-size: 11px;
+  font-size: 9.5px;
   font-weight: 500;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   opacity: 0.8;
+  text-transform: uppercase;
 }
 
 .mode .mode-sub {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
@@ -346,115 +219,83 @@ body {
 
 .mode:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.controls {
+.row {
   display: flex;
-  gap: 12px;
-  justify-content: center;
+  align-items: center;
+  gap: 8px;
 }
+
+.controls .btn { flex: 1 1 0; }
+.controls .toggle { flex: 0 0 auto; }
 
 .btn {
   appearance: none;
   border: 1px solid #2a313b;
   background: var(--bg-2);
   color: var(--fg);
-  padding: 14px 22px;
-  font-size: 18px;
+  padding: 9px 14px;
+  font-size: 15px;
   font-weight: 600;
-  border-radius: 14px;
-  min-width: 110px;
+  border-radius: 11px;
   cursor: pointer;
   transition: transform 80ms ease, background 120ms ease;
 }
 
 .btn:active { transform: scale(0.97); }
 .btn.primary { background: var(--accent); border-color: transparent; color: #002233; }
-.btn.ghost   { background: transparent; }
-.btn.small   { padding: 10px 14px; font-size: 14px; min-width: 0; }
-
-.row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 10px 14px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid #1d232c;
-  border-radius: 14px;
+.btn.icon {
+  padding: 6px 10px;
+  font-size: 18px;
+  line-height: 1;
+  flex: 0 0 auto;
 }
-
-.tilt-row {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-}
-
-.row-label {
-  color: var(--muted);
-  font-size: 14px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.hint {
-  color: var(--muted);
-  font-size: 12px;
-  text-transform: none;
-  letter-spacing: 0;
-  opacity: 0.75;
-}
-
-.hint.center { text-align: center; }
 
 .toggle {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: var(--muted);
-  font-size: 15px;
+  font-size: 13px;
+  padding: 0 4px;
 }
 
-.toggle input { transform: scale(1.3); accent-color: var(--accent); }
+.toggle input { transform: scale(1.15); accent-color: var(--accent); }
+
+.tilt-row { padding: 0 2px; }
 
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  width: 100%;
-  height: 36px;
+  flex: 1 1 0;
+  height: 24px;
   background: transparent;
   accent-color: var(--accent);
 }
 input[type="range"]::-webkit-slider-runnable-track {
-  height: 8px;
+  height: 6px;
   background: #232a35;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 32px;
-  height: 32px;
-  margin-top: -12px;
+  width: 22px;
+  height: 22px;
+  margin-top: -8px;
   border-radius: 50%;
   background: var(--accent);
-  border: 3px solid #001b2a;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  border: 2px solid #001b2a;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
 input[type="range"]::-moz-range-track {
-  height: 8px;
+  height: 6px;
   background: #232a35;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 input[type="range"]::-moz-range-thumb {
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--accent);
-  border: 3px solid #001b2a;
-}
-
-@media (max-width: 380px) {
-  .btn { padding: 12px 16px; font-size: 16px; min-width: 96px; }
-  .mode .mode-label { font-size: 10px; }
-  .mode .mode-sub   { font-size: 15px; }
-  .mode { padding: 8px 3px; }
+  border: 2px solid #001b2a;
 }

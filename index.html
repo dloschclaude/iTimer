@@ -16,64 +16,25 @@
 </head>
 <body>
   <div class="stage" id="stage">
-    <div class="carousel" id="carousel">
-      <!-- View 0: ring + digits -->
-      <section class="view" data-view="0" aria-label="Ring view">
-        <div class="tilt-wrap">
-          <div class="timer-wrap">
-            <svg class="ring" viewBox="0 0 400 400" aria-hidden="true">
-              <circle cx="200" cy="200" r="170" class="track" />
-              <circle cx="200" cy="200" r="170" class="progress" id="progress"
-                      pathLength="1000"
-                      stroke-dasharray="1000"
-                      stroke-dashoffset="1000" />
-              <circle cx="200" cy="200" r="190" class="overtime" id="overtime"
-                      pathLength="1000"
-                      stroke-dasharray="1000"
-                      stroke-dashoffset="1000" />
-              <g class="ticks" id="ticks"></g>
-            </svg>
-            <div class="readout">
-              <div class="time time-ring" id="timeRing">7:00</div>
-              <div class="label" id="label">ready</div>
-            </div>
-          </div>
+    <div class="tilt-wrap">
+      <div class="timer-wrap">
+        <svg class="ring" viewBox="0 0 400 400" aria-hidden="true">
+          <circle cx="200" cy="200" r="170" class="track" />
+          <circle cx="200" cy="200" r="170" class="progress" id="progress"
+                  pathLength="1000"
+                  stroke-dasharray="1000"
+                  stroke-dashoffset="1000" />
+          <circle cx="200" cy="200" r="190" class="overtime" id="overtime"
+                  pathLength="1000"
+                  stroke-dasharray="1000"
+                  stroke-dashoffset="1000" />
+          <g class="ticks" id="ticks"></g>
+        </svg>
+        <div class="readout">
+          <div class="time" id="time">7:00</div>
+          <div class="label" id="label">ready</div>
         </div>
-      </section>
-
-      <!-- View 1: digital only -->
-      <section class="view" data-view="1" aria-label="Digital view">
-        <div class="tilt-wrap">
-          <div class="digital-wrap">
-            <div class="time time-digital" id="timeDigital">7:00</div>
-            <div class="label" id="labelDigital">ready</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- View 2: 11-element segmented clock -->
-      <section class="view" data-view="2" aria-label="Segmented view">
-        <div class="tilt-wrap">
-          <div class="segmented-wrap">
-            <svg id="segmented" class="segmented" viewBox="0 0 560 200" aria-hidden="true">
-              <!-- + sign for overtime, hidden unless in overtime -->
-              <g id="segPlus" class="plus" transform="translate(0, 80)">
-                <rect x="6"  y="14" width="28" height="8" rx="1" />
-                <rect x="16" y="4"  width="8"  height="28" rx="1" />
-              </g>
-              <!-- Slots will be populated by JS: digit, digit, colon, digit, digit -->
-              <g id="segSlots"></g>
-            </svg>
-            <div class="label" id="labelSeg">ready</div>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <div class="dots" id="dots" role="tablist" aria-label="View selector">
-      <button class="dot active" type="button" data-view="0" aria-label="Ring view"></button>
-      <button class="dot" type="button" data-view="1" aria-label="Digital view"></button>
-      <button class="dot" type="button" data-view="2" aria-label="Segmented view"></button>
+      </div>
     </div>
 
     <div class="panel" id="panel">
@@ -96,25 +57,19 @@
         </button>
       </div>
 
-      <div class="controls">
+      <div class="row controls">
         <button class="btn primary" id="startBtn" type="button">Start</button>
         <button class="btn" id="resetBtn" type="button">Reset</button>
-      </div>
-
-      <div class="row">
         <label class="toggle">
           <input type="checkbox" id="soundToggle" checked />
           <span>Sound</span>
         </label>
-        <button class="btn ghost small" id="flipBtn" type="button" title="Flip tilt direction">Flip tilt</button>
       </div>
 
       <div class="row tilt-row">
-        <span class="row-label">Tilt <span class="hint">(or 2-finger swipe ↑↓)</span></span>
+        <button class="btn icon" id="flipBtn" type="button" aria-label="Flip tilt">⇅</button>
         <input type="range" id="tiltRange" min="0" max="60" value="35" aria-label="Tilt angle" />
       </div>
-
-      <div class="hint center">Swipe ← → for digital / segmented · Pinch to resize digits</div>
     </div>
   </div>
 
