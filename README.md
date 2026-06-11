@@ -1,51 +1,53 @@
-# iTimer
+# Debattentimer
 
-A tiny installable PWA timer for **OPD** and **BP** debates. Designed to live on
-an iPhone lying flat on the desk while you speak — the whole UI is tilted via
-CSS perspective so the circle looks roughly upright when you glance down at it.
+An installable iOS PWA timer for **OPD** and **BP** parliamentary debates,
+built from a Claude Design handoff. Designed to lie flat on a desk while the
+speaker glances down — the clock face sits on a 3D-tilted plane so it reads
+upright from a standing angle.
 
 ## Features
 
-- Default 7:00 countdown, configurable from 1–30 minutes.
-- After the target hits 0:00 the timer keeps counting **upward** (overtime
-  shown as `+M:SS` with a red pulsing ring and a thin outer overtime ring).
-- **Screen stays on** while the timer runs (Wake Lock API; iOS 16.4+ / Safari).
-- Optional **sound cues**:
-  - 🔔 *peep* — at **6 minutes left** (protected time over)
-  - 🔔 *ping* — at **1 minute left**
-  - 🔔🔔🔔 three *pings* — at the **last 3 seconds**
-  - 🔔 *peep* — at **+15 seconds** overtime
-- Sounds are synthesised with the Web Audio API — no external files.
-- Big circular progress ring with minute ticks and milestone dots.
-- **Tilt slider** (0–55°) and a **Flip** button to reverse tilt direction
-  depending on whether the phone is oriented with the home edge towards or
-  away from you.
-- Works offline once added to the home screen (service worker caches the
-  shell).
+- **Setup screen** — pick the format family (OPD / BP), then a format:
+  Vorbereitung (15:00), Hauptrede (7:00), Schlussrede (3:30), Eine Minute (1:00).
+  OPD and BP have their own protected-time zones and bell schedules.
+- **Two clock faces** (switchable in settings):
+  - **Analog** — flat minimal dial, sweeping seconds hand, depleting progress
+    arc with coloured protected-time zones and bell markers.
+  - **Digital** — authentic seven-segment LED with ghost segments, bloom, and
+    a blinking colon.
+- **Tilt-to-read** — the plane tilts via CSS 3D perspective. Adjust with a
+  **two-finger vertical drag** on the clock, or the slider in settings; choose
+  the axis (Längs/Quer) and flip 180° for a view from the opposite side.
+- **Protected-time bells** — synthesised bell strikes (single / double) at each
+  format's milestones, plus optional **vibration** and an **edge light flash**.
+- **Counts up into overtime** after the target, shown as `+M:SS`.
+- **Direction** — show remaining time or elapsed time.
+- **Themes** (Schwarz / Anthrazit / Hell) and an **accent colour** picker.
+- **Screen stays awake** while running (Wake Lock API).
+- Works offline once added to the home screen (service worker).
+
+## Architecture
+
+Vanilla HTML/CSS/JS, no dependencies. Views register themselves into
+`window.VIEWS`; the core owns state, formats, the signal engine, persistence,
+gestures and settings.
+
+| File | Purpose |
+| --- | --- |
+| `index.html` | App shell + markup, PWA meta, service-worker registration |
+| `styles.css` | All styling and design tokens |
+| `timer-core.js` | State, formats, signals, persistence, gestures, settings |
+| `timer-analog.js` | Analog dial view (`VIEWS.analog`) |
+| `timer-digital.js` | Seven-segment view (`VIEWS.digital`) |
+| `manifest.webmanifest` | PWA install metadata |
+| `sw.js` | Offline cache |
+| `icon.svg`, `icon-*.png` | App icons |
 
 ## Running locally
 
 ```
-cd iTimer
-npx http-server -p 8123 .
+npx http-server -p 8128 .
 ```
 
-Then open `http://<your-laptop-ip>:8123/` on the iPhone, **share → Add to
-Home Screen**, and launch from the icon so you get full-screen, status-bar
-hiding, and wake-lock behaviour.
-
-> Wake Lock only works over **HTTPS** (or `http://localhost`). If you serve
-> from a LAN address, the screen will still sleep — use a tunnel or self-signed
-> TLS for proper behaviour. Once installed as a PWA over HTTPS, wake lock
-> works on iOS 16.4+.
-
-## Files
-
-| File | Purpose |
-| --- | --- |
-| `index.html` | App shell |
-| `styles.css` | Layout, theme, tilt transform |
-| `app.js` | Timer loop, audio cues, wake lock, settings |
-| `manifest.webmanifest` | PWA install metadata |
-| `sw.js` | Offline cache |
-| `icon.svg`, `icon-*.png` | App icons |
+Open on the iPhone, **Share → Add to Home Screen**, and launch from the icon for
+full-screen and wake-lock behaviour. Wake Lock requires HTTPS (or `localhost`).

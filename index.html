@@ -1,78 +1,105 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="de">
 <head>
-  <meta charset="utf-8" />
-  <title>iTimer — OPD / BP Debate</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-  <meta name="theme-color" content="#0b0d10" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="iTimer" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="icon-180.png" />
-  <link rel="stylesheet" href="styles.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Debattentimer</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Debatte">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="stage" id="stage">
-    <div class="tilt-wrap">
-      <div class="timer-wrap">
-        <svg class="ring" viewBox="0 0 400 400" aria-hidden="true">
-          <circle cx="200" cy="200" r="170" class="track" />
-          <circle cx="200" cy="200" r="170" class="progress" id="progress"
-                  pathLength="1000"
-                  stroke-dasharray="1000"
-                  stroke-dashoffset="1000" />
-          <circle cx="200" cy="200" r="190" class="overtime" id="overtime"
-                  pathLength="1000"
-                  stroke-dasharray="1000"
-                  stroke-dashoffset="1000" />
-          <g class="ticks" id="ticks"></g>
-        </svg>
-        <div class="readout">
-          <div class="time" id="time">7:00</div>
-          <div class="label" id="label">ready</div>
-        </div>
+<div id="app">
+
+  <!-- SETUP -->
+  <section id="setup" class="screen active">
+    <div class="setup-head">
+      <div class="eyebrow">Debattentimer</div>
+      <h1>Format wählen<b>.</b></h1>
+      <div class="seg" id="seg">
+        <button data-mode="opd" class="on">OPD</button>
+        <button data-mode="bp">BP</button>
+      </div>
+      <div class="seg-note" id="segNote"></div>
+    </div>
+    <div class="formats" id="formats"></div>
+    <div class="setup-foot"><div class="hint">Tippen zum Starten · Lange drücken setzt zurück</div></div>
+  </section>
+
+  <!-- TIMER -->
+  <section id="timer" class="screen">
+    <div class="flash" id="flash"></div>
+    <div class="chrome">
+      <button class="iconbtn" id="backBtn" aria-label="Zurück"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <span class="fmt-tag" id="fmtTag"></span>
+      <button class="iconbtn" id="gearBtn" aria-label="Einstellungen"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1M18.4 18.4l-2.1-2.1M7.7 7.7L5.6 5.6"/></svg></button>
+    </div>
+    <div class="stage" id="stage">
+      <div class="table-shadow"></div>
+      <div class="plane" id="plane">
+        <div class="view view-analog on" id="viewAnalog"></div>
+        <div class="view view-digital" id="viewDigital"></div>
+        <div class="rstate" id="rState"></div>
       </div>
     </div>
+    <button class="iconbtn ghost" id="soundBtn" aria-label="Ton ein/aus"><svg viewBox="0 0 24 24"><path d="M18 8.5a6 6 0 0 0-12 0c0 6.5-2.7 8.5-2.7 8.5h17.4S18 15 18 8.5"/><path d="M13.6 20.5a2 2 0 0 1-3.2 0"/><line class="slash" x1="4" y1="3.4" x2="20.5" y2="20.8"/></svg></button>
+    <div class="runhint" id="runhint"><b>Tippen</b> · Start</div>
+  </section>
 
-    <div class="panel" id="panel">
-      <div class="modes" id="modes" role="tablist" aria-label="Timing modes">
-        <button class="mode active" type="button" data-mode="bp-700">
-          <span class="mode-label">BP / OPD</span>
-          <span class="mode-sub">7:00</span>
-        </button>
-        <button class="mode" type="button" data-mode="opd-330">
-          <span class="mode-label">OPD</span>
-          <span class="mode-sub">3:30</span>
-        </button>
-        <button class="mode" type="button" data-mode="opd-100">
-          <span class="mode-label">OPD</span>
-          <span class="mode-sub">1:00</span>
-        </button>
-        <button class="mode" type="button" data-mode="prep-1500">
-          <span class="mode-label">Prep</span>
-          <span class="mode-sub">15:00</span>
-        </button>
-      </div>
-
-      <div class="row controls">
-        <button class="btn primary" id="startBtn" type="button">Start</button>
-        <button class="btn" id="resetBtn" type="button">Reset</button>
-        <label class="toggle">
-          <input type="checkbox" id="soundToggle" checked />
-          <span>Sound</span>
-        </label>
-      </div>
-
-      <div class="row tilt-row">
-        <button class="btn icon" id="flipBtn" type="button" aria-label="Flip tilt">⇅</button>
-        <input type="range" id="tiltRange" min="0" max="60" value="35" aria-label="Tilt angle" />
-      </div>
+  <!-- SETTINGS -->
+  <div class="scrim" id="scrim"></div>
+  <div class="sheet" id="sheet">
+    <div class="grab"></div>
+    <h2>Anzeige</h2>
+    <div class="row">
+      <div><div class="rlabel">Darstellung</div></div>
+      <div class="mseg" id="dispSeg"><button data-v="analog" class="on">Analog</button><button data-v="digital">Digital</button></div>
     </div>
+    <div class="row">
+      <div><div class="rlabel">Richtung</div></div>
+      <div class="mseg" id="dirSeg"><button data-v="remaining" class="on">Restzeit</button><button data-v="elapsed">Verstrichen</button></div>
+    </div>
+    <h2>Kippung</h2>
+    <div class="row">
+      <div><div class="rlabel">Neigung</div><div class="rsub">Zwei Finger auf der Uhr ziehen · beide Richtungen</div></div>
+      <div class="slider-wrap"><span class="slider-val" id="tiltVal">46°</span><input type="range" id="tiltRange" min="-70" max="70" step="1" value="-46"></div>
+    </div>
+    <div class="row">
+      <div><div class="rlabel">Kippachse</div><div class="rsub">Längs = nach hinten · Quer = seitlich</div></div>
+      <div class="mseg" id="axisSeg"><button data-v="x" class="on">Längs</button><button data-v="y">Quer</button></div>
+    </div>
+    <div class="row">
+      <div><div class="rlabel">180° drehen</div><div class="rsub">Für Blick von der Gegenseite</div></div>
+      <div class="tog" id="togFlip"></div>
+    </div>
+    <h2>Signale</h2>
+    <div class="row"><div><div class="rlabel">Ton</div><div class="rsub">Glocke bei Schutzzeit & Ende</div></div><div class="tog on" id="togSound"></div></div>
+    <div class="row"><div><div class="rlabel">Vibration</div></div><div class="tog on" id="togVib"></div></div>
+    <div class="row"><div><div class="rlabel">Lichtsignal</div><div class="rsub">Rand leuchtet auf</div></div><div class="tog on" id="togFlash"></div></div>
+    <h2>Erscheinung</h2>
+    <div class="row">
+      <div><div class="rlabel">Thema</div></div>
+      <div class="mseg" id="themeSeg"><button data-v="black" class="on">Schwarz</button><button data-v="anthra">Anthrazit</button><button data-v="light">Hell</button></div>
+    </div>
+    <div class="row"><div><div class="rlabel">Akzent</div></div><div class="swatches" id="swatches"></div></div>
   </div>
+</div>
 
-  <script src="app.js"></script>
+<script src="timer-analog.js"></script>
+<script src="timer-digital.js"></script>
+<script src="timer-core.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
+</script>
 </body>
 </html>
