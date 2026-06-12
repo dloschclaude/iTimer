@@ -37,7 +37,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidd
 .seg button{appearance:none;border:0;background:transparent;color:var(--ink-dim);font-family:inherit;
   font-size:14px;font-weight:600;letter-spacing:.02em;padding:9px 24px;border-radius:11px;cursor:pointer;
   transition:.32s var(--ease);}
-.seg button.on{background:var(--ink);color:#0a0a0a;}
+.seg button.on{background:var(--ink);color:var(--bg);}
 .seg-note{margin-top:15px;font-size:12.5px;line-height:1.55;color:var(--ink-dim);max-width:34ch;min-height:38px;}
 .formats{display:flex;flex-direction:column;}
 .fmt{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:20px 4px;
@@ -148,15 +148,19 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidd
   background:linear-gradient(178deg,rgba(255,255,255,.06),transparent 18%);}
 .seg-svg{width:100%;display:block;}
 .seg{fill:var(--seg-off,rgba(243,242,237,.07));transition:fill .1s linear;}
-.seg.on{fill:var(--seg-on,var(--c-open));filter:drop-shadow(0 0 9px var(--seg-on,var(--c-open))) drop-shadow(0 0 2px var(--seg-on,var(--c-open)));}
+.seg.on{fill:var(--seg-on,var(--c-open));}
 .colon circle{fill:var(--seg-off,rgba(243,242,237,.07));}
-.colon.lit circle{fill:var(--seg-on,var(--c-open));filter:drop-shadow(0 0 9px var(--seg-on,var(--c-open)));}
+.colon.lit circle{fill:var(--seg-on,var(--c-open));}
+
+/* Bloom/Glühen auf das gesamte SVG legen statt auf einzelne Segmente:
+   iOS Safari rendert CSS-filter auf einzelnen SVG-Shapes nicht, wohl
+   aber auf dem äußeren <svg>. Die „Geister"-Segmente sind nahezu
+   transparent und tragen daher kaum zum Glühen bei. */
+.seg-svg{filter:drop-shadow(0 0 9px var(--seg-on,var(--c-open))) drop-shadow(0 0 2px var(--seg-on,var(--c-open)));}
 
 /* glow levels — voll / dezent / aus */
-[data-glow="low"] .seg.on{filter:drop-shadow(0 0 3px var(--seg-on,var(--c-open)));}
-[data-glow="low"] .colon.lit circle{filter:drop-shadow(0 0 3px var(--seg-on,var(--c-open)));}
-[data-glow="off"] .seg.on{filter:none;}
-[data-glow="off"] .colon.lit circle{filter:none;}
+[data-glow="low"] .seg-svg{filter:drop-shadow(0 0 3px var(--seg-on,var(--c-open)));}
+[data-glow="off"] .seg-svg{filter:none;}
 
 /* XL / full-screen digital (great in landscape) */
 .stage[data-disp="xl"] .table-shadow{opacity:0;}
@@ -209,7 +213,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
 .mseg{display:flex;gap:3px;padding:3px;border-radius:12px;background:var(--ink-faint);}
 .mseg button{appearance:none;border:0;background:transparent;color:var(--ink-dim);font-family:inherit;
   font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:9px;cursor:pointer;transition:.28s var(--ease);white-space:nowrap;}
-.mseg button.on{background:var(--ink);color:#0a0a0a;}
+.mseg button.on{background:var(--ink);color:var(--bg);}
 .swatches{display:flex;gap:10px;}
 .sw{width:30px;height:30px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:.25s var(--ease);}
 .sw.on{border-color:var(--ink);transform:scale(1.08);}
