@@ -58,7 +58,7 @@ window.S = {
   baseElapsed:0, running:false, runStart:0,
   settings:{
     tilt:-15, axis:'x', flip:false,
-    display:'analog', dir:'remaining', glow:true,
+    display:'analog', dir:'remaining', glow:'full', anaStyle:'minimal',
     sound:true, vib:true, flash:true,
     theme:'black', accent:'amber',
   },
@@ -68,6 +68,7 @@ function load(){
     if(raw) S={...S,...raw,settings:{...S.settings,...(raw.settings||{})}}; }catch(e){}
   // one-time migration: alte, zu steile Neigung auf neuen Standard zurücksetzen
   if(!S.settings.tiltV2){ S.settings.tilt=-15; S.settings.tiltV2=true; }
+  if(typeof S.settings.glow==='boolean') S.settings.glow = S.settings.glow?'full':'off';
 }
 function save(){ try{ localStorage.setItem(LS,JSON.stringify(S)); }catch(e){} }
 let lastSave=0;
@@ -144,26 +145,57 @@ function applyTilt(){
   document.documentElement.style.setProperty('--tilt-tf', t);
 }
 function applyDisplay(){
-  const d=S.settings.display, dig=(d==='digital'||d==='xl');
-  $('#viewAnalog').classList.toggle('on', d==='analog');
-  $('#viewDigital').classList.toggle('on', dig);
+  const d=S.settings.display, v=dispView();
+  $('#viewAnalog').classList.toggle('on', v==='analog');
+  $('#viewStation').classList.toggle('on', v==='station');
+  $('#viewDigital').classList.toggle('on', v==='digital');
   const stage=$('#stage'); if(stage) stage.dataset.disp=d;
 }
-function dispView(){ return S.settings.display==='xl'?'digital':S.settings.display; }
-function applyGlow(){ document.documentElement.dataset.glow = S.settings.glow?'on':'off'; }
+function dispView(){
+  const d=S.settings.display;
+  if(d==='xl') return 'digital';
+  if(d==='analog') return S.settings.anaStyle==='station'?'station':'analog';
+  return d;
+}
+function applyGlow(){ document.documentElement.dataset.glow = S.settings.glow; }
 function applySound(){ const b=$('#soundBtn'); if(b) b.classList.toggle('muted', !S.settings.sound); }
 function applyAll(){ applyTheme(); applyAccent(); applyTilt(); applyDisplay(); applyGlow(); applySound(); refreshViews(); }
 
+/* -------- Uhrenstile · Wischen links/rechts ----------------------- */
+// Reihenfolge beim Wischen: Analog · Bahnhof · Digital · Digital XXL
+const STYLES=[
+  {display:'analog', anaStyle:'minimal', label:'Analog'},
+  {display:'analog', anaStyle:'station', label:'Bahnhof'},
+  {display:'digital',                    label:'Digital'},
+  {display:'xl',                          label:'Digital XXL'},
+];
+function styleIndex(){
+  const d=S.settings.display;
+  if(d==='xl') return 3;
+  if(d==='digital') return 2;
+  return S.settings.anaStyle==='station'?1:0;
+}
+function setStyleByIndex(i){
+  const s=STYLES[((i%STYLES.length)+STYLES.length)%STYLES.length];
+  S.settings.display=s.display;
+  if(s.anaStyle) S.settings.anaStyle=s.anaStyle;
+  applyDisplay(); refreshViews(); syncSettingsUI(); save();
+  styleHUD(s.label);
+}
+function cycleStyle(dir){ setStyleByIndex(styleIndex()+dir); }
+
 /* -------- Views --------------------------------------------------- */
-let built={analog:false,digital:false};
+let built={analog:false,station:false,digital:false};
 function ensureBuilt(){
   if(VIEWS.analog && !built.analog){ VIEWS.analog.build($('#viewAnalog')); built.analog=true; }
+  if(VIEWS.station && !built.station){ VIEWS.station.build($('#viewStation')); built.station=true; }
   if(VIEWS.digital && !built.digital){ VIEWS.digital.build($('#viewDigital')); built.digital=true; }
 }
 function refreshViews(){
   ensureBuilt();
   const f=F();
   if(VIEWS.analog && VIEWS.analog.format) VIEWS.analog.format(f);
+  if(VIEWS.station && VIEWS.station.format) VIEWS.station.format(f);
   if(VIEWS.digital && VIEWS.digital.format) VIEWS.digital.format(f);
 }
 
@@ -246,9 +278,10 @@ function setTiltVal(){ const v=$('#tiltVal'); if(v) v.textContent=Math.abs(S.set
 function syncSettingsUI(){
   $('#tiltRange').value=S.settings.tilt; setTiltVal();
   setSeg('#axisSeg',S.settings.axis); setSeg('#dispSeg',S.settings.display);
+  setSeg('#anaSeg',S.settings.anaStyle);
   setSeg('#dirSeg',S.settings.dir); setSeg('#themeSeg',S.settings.theme);
   $('#togFlip').classList.toggle('on',S.settings.flip);
-  $('#togGlow').classList.toggle('on',S.settings.glow);
+  setSeg('#glowSeg',S.settings.glow);
   $('#togSound').classList.toggle('on',S.settings.sound);
   $('#togVib').classList.toggle('on',S.settings.vib);
   $('#togFlash').classList.toggle('on',S.settings.flash);
@@ -271,6 +304,16 @@ function tiltHUD(show,val){
   else { hudTimer=setTimeout(()=>tiltHud.classList.remove('on'),650); }
 }
 
+/* -------- Stil-HUD (kurzer Name beim Wischen) --------------------- */
+let styleHud=null, styleHudTimer=null;
+function styleHUD(label){
+  if(!styleHud){ styleHud=document.createElement('div'); styleHud.id='styleHud'; $('#stage').appendChild(styleHud); }
+  styleHud.textContent=label;
+  styleHud.classList.add('on');
+  clearTimeout(styleHudTimer);
+  styleHudTimer=setTimeout(()=>styleHud.classList.remove('on'),900);
+}
+
 /* -------- Gesten -------------------------------------------------- */
 function bindGestures(){
   const stage=$('#stage');
@@ -278,9 +321,21 @@ function bindGestures(){
   const ignore=(t)=>t.closest('.chrome')||t.closest('.sheet');
   const avgY=(touches)=>{ let y=0; for(const t of touches) y+=t.clientY; return y/touches.length; };
 
-  // Tippen = Start / Pause (kein Reset mehr per Gedrückthalten)
+  // Ein Finger horizontal wischen = Uhrenstil wechseln; sonst Tippen = Start/Pause
+  let downX=0, downY=0, maybeSwipe=false;
+  stage.addEventListener('pointerdown',e=>{ if(ignore(e.target))return;
+    downX=e.clientX; downY=e.clientY; maybeSwipe=true; });
+  stage.addEventListener('pointercancel',()=>{ maybeSwipe=false; });
   stage.addEventListener('pointerup',e=>{ if(ignore(e.target))return;
-    if(gesturing || Date.now()<suppressTapUntil) return; startPause(); });
+    if(gesturing || Date.now()<suppressTapUntil){ maybeSwipe=false; return; }
+    if(maybeSwipe){
+      const dx=e.clientX-downX, dy=e.clientY-downY;
+      if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.3){
+        cycleStyle(dx<0?1:-1); maybeSwipe=false; return;
+      }
+    }
+    maybeSwipe=false; startPause();
+  });
 
   // Zwei Finger vertikal ziehen = Tisch virtuell aufrichten/neigen
   stage.addEventListener('touchstart',e=>{ if(ignore(e.target))return;
@@ -320,12 +375,15 @@ function init(){
     S.settings.axis=b.dataset.v; applyTilt(); syncSettingsUI(); save(); });
   $('#dispSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return;
     S.settings.display=b.dataset.v; applyDisplay(); refreshViews(); syncSettingsUI(); save(); });
+  $('#anaSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return;
+    S.settings.anaStyle=b.dataset.v; applyDisplay(); refreshViews(); syncSettingsUI(); save(); });
   $('#dirSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return;
     S.settings.dir=b.dataset.v; syncSettingsUI(); save(); });
   $('#themeSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return;
     S.settings.theme=b.dataset.v; applyTheme(); refreshViews(); syncSettingsUI(); save(); });
   $('#togFlip').addEventListener('click',()=>{ S.settings.flip=!S.settings.flip; applyTilt(); syncSettingsUI(); save(); });
-  $('#togGlow').addEventListener('click',()=>{ S.settings.glow=!S.settings.glow; applyGlow(); syncSettingsUI(); save(); });
+  $('#glowSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return;
+    S.settings.glow=b.dataset.v; applyGlow(); syncSettingsUI(); save(); });
   $('#togSound').addEventListener('click',()=>{ S.settings.sound=!S.settings.sound; if(S.settings.sound) ensureAudio(); applySound(); syncSettingsUI(); save(); });
   $('#togVib').addEventListener('click',()=>{ S.settings.vib=!S.settings.vib; syncSettingsUI(); save(); });
   $('#togFlash').addEventListener('click',()=>{ S.settings.flash=!S.settings.flash; syncSettingsUI(); save(); });

@@ -47,6 +47,7 @@
       <div class="table-shadow"></div>
       <div class="plane" id="plane">
         <div class="view view-analog on" id="viewAnalog"></div>
+        <div class="view view-station" id="viewStation"></div>
         <div class="view view-digital" id="viewDigital"></div>
         <div class="rstate" id="rState"></div>
       </div>
@@ -62,7 +63,11 @@
     <h2>Anzeige</h2>
     <div class="row">
       <div><div class="rlabel">Darstellung</div></div>
-      <div class="mseg" id="dispSeg"><button data-v="analog" class="on">Analog</button><button data-v="digital">Digital</button><button data-v="xl">XL</button></div>
+      <div class="mseg" id="dispSeg"><button data-v="analog" class="on">Analog</button><button data-v="digital">Digital</button><button data-v="xl">XXL</button></div>
+    </div>
+    <div class="row">
+      <div><div class="rlabel">Analog-Stil</div><div class="rsub">Minimal-Chrono oder Bahnhofsuhr</div></div>
+      <div class="mseg" id="anaSeg"><button data-v="minimal" class="on">Minimal</button><button data-v="station">Bahnhof</button></div>
     </div>
     <div class="row">
       <div><div class="rlabel">Richtung</div></div>
@@ -70,7 +75,7 @@
     </div>
     <div class="row">
       <div><div class="rlabel">Leuchten</div><div class="rsub">Glühen der Ziffern · Digital</div></div>
-      <div class="tog on" id="togGlow"></div>
+      <div class="mseg" id="glowSeg"><button data-v="full" class="on">Voll</button><button data-v="low">Dezent</button><button data-v="off">Aus</button></div>
     </div>
     <h2>Kippung</h2>
     <div class="row">
@@ -99,6 +104,7 @@
 </div>
 
 <script src="timer-analog.js"></script>
+<script src="timer-station.js"></script>
 <script src="timer-digital.js"></script>
 <script src="timer-core.js"></script>
 <script>

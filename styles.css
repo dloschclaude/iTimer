@@ -115,6 +115,17 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidd
 .ana-time{font-size:clamp(52px,15vw,80px);font-weight:200;letter-spacing:-.03em;line-height:1;
   font-variant-numeric:tabular-nums;color:var(--ink);transition:color .5s var(--ease);}
 
+/* ---- Bahnhofsuhr (station clock) ---- */
+.st-dial{filter:drop-shadow(0 16px 32px rgba(0,0,0,.42));}
+.st-face{fill:#f4f3ee;}
+.st-rim{fill:none;stroke:rgba(0,0,0,.10);stroke-width:2;}
+.st-min{stroke:#1b1d22;stroke-width:2.6;stroke-linecap:butt;}
+.st-baton{stroke:#16181c;stroke-width:9;stroke-linecap:butt;}
+.st-mhand{fill:#16181c;}
+.st-shand{stroke:#cf2031;stroke-width:3.6;stroke-linecap:round;}
+.st-cap{fill:#16181c;}
+.st-scap{fill:#cf2031;}
+
 /* ---- digital (seven-segment) ---- */
 .seg-wrap{display:flex;flex-direction:column;align-items:center;gap:20px;width:92%;}
 .seg-label{font-size:11px;letter-spacing:.4em;text-transform:uppercase;color:var(--ink-dim);font-weight:600;}
@@ -133,14 +144,16 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidd
 .colon circle{fill:var(--seg-off,rgba(243,242,237,.07));}
 .colon.lit circle{fill:var(--seg-on,var(--c-open));filter:drop-shadow(0 0 9px var(--seg-on,var(--c-open)));}
 
-/* glow off — flat LCD look */
+/* glow levels — voll / dezent / aus */
+[data-glow="low"] .seg.on{filter:drop-shadow(0 0 3px var(--seg-on,var(--c-open)));}
+[data-glow="low"] .colon.lit circle{filter:drop-shadow(0 0 3px var(--seg-on,var(--c-open)));}
 [data-glow="off"] .seg.on{filter:none;}
 [data-glow="off"] .colon.lit circle{filter:none;}
 
 /* XL / full-screen digital (great in landscape) */
 .stage[data-disp="xl"] .table-shadow{opacity:0;}
 .stage[data-disp="xl"] .plane{width:min(95vw,1500px);height:auto;transform-origin:center center;}
-.stage[data-disp="xl"] #viewAnalog{display:none;}
+.stage[data-disp="xl"] #viewAnalog,.stage[data-disp="xl"] #viewStation{display:none;}
 .stage[data-disp="xl"] #viewDigital{position:relative;inset:auto;opacity:1;}
 .stage[data-disp="xl"] .seg-wrap{width:100%;gap:clamp(14px,2.5vh,26px);}
 .stage[data-disp="xl"] .seg-panel{padding:clamp(28px,6vh,72px) clamp(26px,5vw,90px);border-radius:clamp(20px,3vw,40px);}
@@ -155,13 +168,13 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidd
   font-size:12px;letter-spacing:.05em;color:var(--ink-dim);z-index:7;transition:opacity .4s var(--ease);}
 .runhint b{color:var(--ink);font-weight:600;}
 
-/* two-finger tilt readout */
-#tiltHud{position:absolute;left:50%;top:max(env(safe-area-inset-top),74px);transform:translateX(-50%) translateY(-6px);
+/* two-finger tilt readout · swipe style readout */
+#tiltHud,#styleHud{position:absolute;left:50%;top:max(env(safe-area-inset-top),74px);transform:translateX(-50%) translateY(-6px);
   z-index:8;font-family:var(--mono);font-size:13px;letter-spacing:.06em;font-variant-numeric:tabular-nums;
   color:var(--ink);background:var(--surface);backdrop-filter:blur(18px) saturate(1.4);
   border:1px solid var(--hair);padding:9px 16px;border-radius:999px;pointer-events:none;
   opacity:0;transition:opacity .25s var(--ease),transform .25s var(--ease);}
-#tiltHud.on{opacity:1;transform:translateX(-50%) translateY(0);}
+#tiltHud.on,#styleHud.on{opacity:1;transform:translateX(-50%) translateY(0);}
 
 /* ====================== SETTINGS SHEET ====================== */
 .scrim{position:absolute;inset:0;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;
