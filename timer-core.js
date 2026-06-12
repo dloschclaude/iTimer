@@ -19,10 +19,10 @@ function buildFormats(mode){
              protStart:null, protEnd:[840,900],
              bells:[{t:840,double:false,name:'Noch 1 Minute'},{t:900,double:true,name:'Zeit abgelaufen'}] },
     main:  opd
-      ? { key:'main', name:'OPD-Rede', dur:420, sub:'Schutzzeit erste & letzte 30 s',
-          protStart:[0,30], protEnd:[390,420],
-          bells:[{t:30,double:false,name:'Schutzzeit endet · Fragen frei'},
-                 {t:390,double:false,name:'Schutzzeit · letzte 30 s'},
+      ? { key:'main', name:'OPD-Rede', dur:420, sub:'Schutzzeit erste & letzte Minute',
+          protStart:[0,60], protEnd:[360,420],
+          bells:[{t:60,double:false,name:'Schutzzeit endet · Fragen frei'},
+                 {t:360,double:false,name:'Schutzzeit · letzte Minute'},
                  {t:420,double:true,name:'Redezeit vorbei'}] }
       : { key:'main', name:'BP Speech', dur:420, sub:'Protected first & last minute',
           protStart:[0,60], protEnd:[360,420],
@@ -265,7 +265,7 @@ function renderFormats(){
     el.addEventListener('click',()=>openTimer(k)); box.appendChild(el);
   });
   $('#segNote').textContent = S.mode==='opd'
-    ? 'OPD · Glocke nach 30 s (Schutzzeit endet), erneut 30 s vor Schluss, Doppelglocke bei 7:00.'
+    ? 'OPD · Glocke nach 1:00 (Schutzzeit endet), erneut nach 6:00 (letzte Minute), Doppelglocke bei 7:00.'
     : 'BP · Knock nach 1:00 (POIs offen), nach 6:00 (POIs zu), Doppelglocke bei 7:00.';
   $('#seg').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.mode===S.mode));
   refreshViews();
