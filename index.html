@@ -49,11 +49,14 @@
         <div class="view view-analog on" id="viewAnalog"></div>
         <div class="view view-station" id="viewStation"></div>
         <div class="view view-digital" id="viewDigital"></div>
-        <div class="rstate" id="rState"></div>
       </div>
     </div>
-    <button class="iconbtn ghost" id="soundBtn" aria-label="Ton ein/aus"><svg viewBox="0 0 24 24"><path d="M18 8.5a6 6 0 0 0-12 0c0 6.5-2.7 8.5-2.7 8.5h17.4S18 15 18 8.5"/><path d="M13.6 20.5a2 2 0 0 1-3.2 0"/><line class="slash" x1="4" y1="3.4" x2="20.5" y2="20.8"/></svg></button>
-    <div class="runhint" id="runhint"><b>Tippen</b> · Start</div>
+    <div class="rstate" id="rState"></div>
+    <div class="controls">
+      <button class="iconbtn ghost solid" id="startBtn" aria-label="Start"><svg viewBox="0 0 24 24"><path d="M8 5l12 7-12 7z"/></svg></button>
+      <button class="iconbtn ghost solid" id="stopBtn" aria-label="Stopp"><svg viewBox="0 0 24 24"><rect x="7" y="6" width="3.6" height="12" rx="1"/><rect x="13.4" y="6" width="3.6" height="12" rx="1"/></svg></button>
+      <button class="iconbtn ghost" id="soundBtn" aria-label="Ton ein/aus"><svg viewBox="0 0 24 24"><path d="M18 8.5a6 6 0 0 0-12 0c0 6.5-2.7 8.5-2.7 8.5h17.4S18 15 18 8.5"/><path d="M13.6 20.5a2 2 0 0 1-3.2 0"/><line class="slash" x1="4" y1="3.4" x2="20.5" y2="20.8"/></svg></button>
+    </div>
   </section>
 
   <!-- SETTINGS -->
@@ -63,7 +66,7 @@
     <h2>Anzeige</h2>
     <div class="row">
       <div><div class="rlabel">Darstellung</div></div>
-      <div class="mseg" id="dispSeg"><button data-v="analog" class="on">Analog</button><button data-v="digital">Digital</button><button data-v="xl">XXL</button></div>
+      <div class="mseg" id="dispSeg"><button data-v="analog" class="on">Analog</button><button data-v="digital">Digital</button><button data-v="xl">XL</button></div>
     </div>
     <div class="row">
       <div><div class="rlabel">Analog-Stil</div><div class="rsub">Minimal-Chrono oder Bahnhofsuhr</div></div>
@@ -80,7 +83,7 @@
     <h2>Kippung</h2>
     <div class="row">
       <div><div class="rlabel">Neigung</div><div class="rsub">Zwei Finger auf der Uhr ziehen · beide Richtungen</div></div>
-      <div class="slider-wrap"><span class="slider-val" id="tiltVal">46°</span><input type="range" id="tiltRange" min="-70" max="70" step="1" value="-46"></div>
+      <div class="slider-wrap"><span class="slider-val" id="tiltVal">15°</span><input type="range" id="tiltRange" min="-32" max="32" step="1" value="-15"></div>
     </div>
     <div class="row">
       <div><div class="rlabel">Kippachse</div><div class="rsub">Längs = nach hinten · Quer = seitlich</div></div>

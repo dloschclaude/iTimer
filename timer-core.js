@@ -69,6 +69,7 @@ function load(){
   // one-time migration: alte, zu steile Neigung auf neuen Standard zurücksetzen
   if(!S.settings.tiltV2){ S.settings.tilt=-15; S.settings.tiltV2=true; }
   if(typeof S.settings.glow==='boolean') S.settings.glow = S.settings.glow?'full':'off';
+  S.settings.tilt = Math.max(-32, Math.min(32, S.settings.tilt|0));
 }
 function save(){ try{ localStorage.setItem(LS,JSON.stringify(S)); }catch(e){} }
 let lastSave=0;
@@ -162,12 +163,12 @@ function applySound(){ const b=$('#soundBtn'); if(b) b.classList.toggle('muted',
 function applyAll(){ applyTheme(); applyAccent(); applyTilt(); applyDisplay(); applyGlow(); applySound(); refreshViews(); }
 
 /* -------- Uhrenstile · Wischen links/rechts ----------------------- */
-// Reihenfolge beim Wischen: Analog · Bahnhof · Digital · Digital XXL
+// Reihenfolge beim Wischen: Analog · Bahnhof · Digital · Digital XL
 const STYLES=[
-  {display:'analog', anaStyle:'minimal', label:'Analog'},
-  {display:'analog', anaStyle:'station', label:'Bahnhof'},
-  {display:'digital',                    label:'Digital'},
-  {display:'xl',                          label:'Digital XXL'},
+  {display:'analog',  anaStyle:'minimal', label:'Analog'},
+  {display:'analog',  anaStyle:'station', label:'Bahnhof'},
+  {display:'digital',                     label:'Digital'},
+  {display:'xl',                          label:'Digital XL'},
 ];
 function styleIndex(){
   const d=S.settings.display;
@@ -200,27 +201,29 @@ function refreshViews(){
 }
 
 /* -------- Render-Loop --------------------------------------------- */
-let raf=0;
+let raf=0, tickErrLogged=false;
 function tick(){
-  const f=F(), e=elapsed(), ph=phaseOf(f,e), col=phaseColor(ph);
-  document.documentElement.style.setProperty('--phase',col);
+  try{
+    const f=F(), e=elapsed(), ph=phaseOf(f,e), col=phaseColor(ph);
+    document.documentElement.style.setProperty('--phase',col);
 
-  const view = VIEWS[dispView()];
-  if(view && view.render) view.render(e,f,ph,col);
+    const view = VIEWS[dispView()];
+    if(view && view.render) view.render(e,f,ph,col);
 
-  // Statuszeile
-  const st=$('#rState');
-  if(st && st.dataset.sticky!=='1'){
-    st.textContent = (!S.running && e===0) ? '' :
-      ph==='over' ? 'Überzeit' :
-      ph==='prot' ? 'Schutzzeit' :
-      ph==='warn' ? (f.protEnd?'Schutzzeit · Ende naht':'Ende naht') :
-      S.running ? '' : 'pausiert';
-  }
-  // Glocken
-  if(S.running) f.bells.forEach(b=>{ if(e>=b.t && !firedTimes.has(b.t)){ firedTimes.add(b.t); signal(b); } });
+    // Statuszeile
+    const st=$('#rState');
+    if(st && st.dataset.sticky!=='1'){
+      st.textContent = (!S.running && e===0) ? '' :
+        ph==='over' ? 'Überzeit' :
+        ph==='prot' ? 'Schutzzeit' :
+        ph==='warn' ? (f.protEnd?'Schutzzeit · Ende naht':'Ende naht') :
+        S.running ? '' : 'pausiert';
+    }
+    // Glocken
+    if(S.running) f.bells.forEach(b=>{ if(e>=b.t && !firedTimes.has(b.t)){ firedTimes.add(b.t); signal(b); } });
 
-  if(S.running) saveThrottled();
+    if(S.running) saveThrottled();
+  }catch(err){ if(!tickErrLogged){ tickErrLogged=true; console.error('tick error:',err); } }
   raf=requestAnimationFrame(tick);
 }
 
@@ -236,9 +239,14 @@ function reset(){
   const st=$('#rState'); if(st){ st.dataset.sticky=''; st.textContent=''; }
   showHint(); vibrate(false); save();
 }
-function hideHint(){ const h=$('#runhint'); if(h) h.style.opacity='0'; }
-function showHint(){ const h=$('#runhint'); if(h){ h.style.opacity=''; h.innerHTML='<b>Tippen</b> · Start'; } }
-function updateHint(){ const h=$('#runhint'); if(!h) return; if(S.running) h.style.opacity='0'; else { h.style.opacity=''; h.innerHTML='<b>Tippen</b> · Fortsetzen'; } }
+function updateControls(){
+  const a=$('#startBtn'), b=$('#stopBtn');
+  if(a) a.classList.toggle('active', S.running);
+  if(b) b.classList.toggle('active', !S.running);
+}
+function hideHint(){ updateControls(); }
+function showHint(){ updateControls(); }
+function updateHint(){ updateControls(); }
 
 /* -------- Navigation ---------------------------------------------- */
 function go(screen){
@@ -318,10 +326,10 @@ function styleHUD(label){
 function bindGestures(){
   const stage=$('#stage');
   let gesturing=false, startY=0, startTilt=0, suppressTapUntil=0;
-  const ignore=(t)=>t.closest('.chrome')||t.closest('.sheet');
+  const ignore=(t)=>t.closest('.chrome')||t.closest('.sheet')||t.closest('.controls');
   const avgY=(touches)=>{ let y=0; for(const t of touches) y+=t.clientY; return y/touches.length; };
 
-  // Ein Finger horizontal wischen = Uhrenstil wechseln; sonst Tippen = Start/Pause
+  // Ein Finger horizontal wischen = Uhrenstil wechseln; sonst Tippen = Start / Pause
   let downX=0, downY=0, maybeSwipe=false;
   stage.addEventListener('pointerdown',e=>{ if(ignore(e.target))return;
     downX=e.clientX; downY=e.clientY; maybeSwipe=true; });
@@ -346,7 +354,7 @@ function bindGestures(){
     if(e.touches.length>=2){ e.preventDefault();
       const dy=avgY([e.touches[0],e.touches[1]])-startY;
       let t=Math.round(startTilt - dy*0.32);
-      t=Math.max(-70,Math.min(70,t));
+      t=Math.max(-32,Math.min(32,t));
       if(t!==S.settings.tilt){ S.settings.tilt=t; applyTilt(); tiltHUD(true,t);
         const r=$('#tiltRange'); if(r) r.value=t; setTiltVal(); }
     }
@@ -367,6 +375,8 @@ function init(){
   $('#backBtn').addEventListener('click',()=>{ if(S.running) startPause(); go('setup'); });
   $('#gearBtn').addEventListener('click',openSheet);
   $('#resetBtn').addEventListener('click',()=>{ reset(); });
+  $('#startBtn').addEventListener('click',()=>{ if(!S.running) startPause(); });
+  $('#stopBtn').addEventListener('click',()=>{ if(S.running) startPause(); });
   $('#soundBtn').addEventListener('click',()=>{ S.settings.sound=!S.settings.sound; if(S.settings.sound) ensureAudio(); applySound(); syncSettingsUI(); save(); });
   $('#scrim').addEventListener('click',closeSheet);
 

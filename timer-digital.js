@@ -44,7 +44,7 @@
 
     const panel=document.createElement('div'); panel.className='seg-panel';
     const svg=el('svg',{viewBox:'-30 -6 572 214',class:'seg-svg'});
-    const slant=el('g',{transform:'translate(20,0) skewX(-6)'});
+    const slant=el('g',{transform:'translate(0,0)'});
     // digits + colon
     refs.slots.push(buildDigit(slant,SLOTS[0]));
     refs.slots.push(buildDigit(slant,SLOTS[1]));

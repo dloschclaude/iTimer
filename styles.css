@@ -66,13 +66,15 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidd
 .iconbtn svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;}
 .chrome-r{display:flex;align-items:center;gap:6px;}
 .iconbtn.ghost{background:transparent;backdrop-filter:none;color:var(--ink);}
-#soundBtn{position:absolute;left:50%;bottom:max(env(safe-area-inset-bottom),74px);transform:translateX(-50%);
-  z-index:7;width:42px;height:42px;}
-#soundBtn svg{width:23px;height:23px;}
+.controls{position:absolute;left:0;right:0;bottom:max(env(safe-area-inset-bottom),28px);
+  display:flex;justify-content:center;align-items:center;gap:16px;z-index:8;}
+.controls .iconbtn.ghost{width:46px;height:46px;}
+.controls .iconbtn.ghost svg{width:24px;height:24px;}
+.iconbtn.ghost.active{color:var(--accent);}
+.iconbtn.solid svg{fill:currentColor;stroke:none;}
 #soundBtn .slash{opacity:0;transition:opacity .25s var(--ease);}
 #soundBtn.muted{opacity:.4;}
 #soundBtn.muted .slash{opacity:1;}
-#soundBtn:active{transform:translateX(-50%) scale(.9);}
 .fmt-tag{font-size:12px;letter-spacing:.06em;color:var(--ink-dim);font-weight:600;text-transform:uppercase;}
 
 .stage{position:absolute;inset:0;perspective:1150px;perspective-origin:50% 50%;
@@ -159,14 +161,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidd
 .stage[data-disp="xl"] .seg-panel{padding:clamp(28px,6vh,72px) clamp(26px,5vw,90px);border-radius:clamp(20px,3vw,40px);}
 .stage[data-disp="xl"] .seg-label{font-size:clamp(11px,1.5vw,17px);}
 
-/* shared state line */
-.rstate{position:absolute;left:0;right:0;bottom:-4%;text-align:center;font-size:13px;
-  letter-spacing:.04em;color:var(--ink-dim);font-weight:500;min-height:16px;
-  transition:color .5s var(--ease);}
-
-.runhint{position:absolute;left:0;right:0;bottom:max(env(safe-area-inset-bottom),26px);text-align:center;
-  font-size:12px;letter-spacing:.05em;color:var(--ink-dim);z-index:7;transition:opacity .4s var(--ease);}
-.runhint b{color:var(--ink);font-weight:600;}
+/* shared state line — flat, below the clock, above the controls */
+.rstate{position:absolute;left:0;right:0;bottom:max(calc(env(safe-area-inset-bottom) + 100px),112px);
+  text-align:center;font-size:13px;letter-spacing:.04em;color:var(--ink-dim);font-weight:500;
+  min-height:16px;z-index:7;transition:color .5s var(--ease);}
 
 /* two-finger tilt readout · swipe style readout */
 #tiltHud,#styleHud{position:absolute;left:50%;top:max(env(safe-area-inset-top),74px);transform:translateX(-50%) translateY(-6px);

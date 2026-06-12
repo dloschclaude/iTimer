@@ -1,7 +1,7 @@
 // Minimal cache-first service worker so the timer keeps working offline
 // after the user adds it to their home screen.
 
-const CACHE = "debattentimer-v9";
+const CACHE = "debattentimer-v10";
 const ASSETS = [
   "./",
   "./index.html",
