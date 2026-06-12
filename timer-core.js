@@ -363,8 +363,9 @@ function bindGestures(){
   const ignore=(t)=>t.closest('.chrome')||t.closest('.sheet')||t.closest('.controls');
   const avgY=(touches)=>{ let y=0; for(const t of touches) y+=t.clientY; return y/touches.length; };
 
-  // Ein Finger horizontal wischen = Uhrenstil wechseln. Tippen tut nichts –
-  // Start/Pause läuft ausschliesslich über den Play-Button.
+  // Ein Finger horizontal wischen = Uhrenstil wechseln.
+  // Tippen auf die Uhr startet den Timer; weitere Taps tun nichts –
+  // Pause / Stopp läuft ausschliesslich über den Play-Button.
   let downX=0, downY=0, maybeSwipe=false;
   stage.addEventListener('pointerdown',e=>{ if(ignore(e.target))return;
     downX=e.clientX; downY=e.clientY; maybeSwipe=true; });
@@ -374,8 +375,10 @@ function bindGestures(){
     if(maybeSwipe){
       const dx=e.clientX-downX, dy=e.clientY-downY;
       if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.3){
-        cycleStyle(dx<0?1:-1);
+        cycleStyle(dx<0?1:-1); maybeSwipe=false; return;
       }
+      // Plain tap on the clock — only starts, never stops
+      if(!S.running){ ensureAudio(); startPause(); }
     }
     maybeSwipe=false;
   });
