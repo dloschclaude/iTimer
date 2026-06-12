@@ -58,7 +58,7 @@ window.S = {
   baseElapsed:0, running:false, runStart:0,
   settings:{
     tilt:-15, axis:'x', flip:false,
-    display:'analog', dir:'remaining',
+    display:'analog', dir:'remaining', glow:true,
     sound:true, vib:true, flash:true,
     theme:'black', accent:'amber',
   },
@@ -144,12 +144,15 @@ function applyTilt(){
   document.documentElement.style.setProperty('--tilt-tf', t);
 }
 function applyDisplay(){
-  const d=S.settings.display;
+  const d=S.settings.display, dig=(d==='digital'||d==='xl');
   $('#viewAnalog').classList.toggle('on', d==='analog');
-  $('#viewDigital').classList.toggle('on', d==='digital');
+  $('#viewDigital').classList.toggle('on', dig);
+  const stage=$('#stage'); if(stage) stage.dataset.disp=d;
 }
+function dispView(){ return S.settings.display==='xl'?'digital':S.settings.display; }
+function applyGlow(){ document.documentElement.dataset.glow = S.settings.glow?'on':'off'; }
 function applySound(){ const b=$('#soundBtn'); if(b) b.classList.toggle('muted', !S.settings.sound); }
-function applyAll(){ applyTheme(); applyAccent(); applyTilt(); applyDisplay(); applySound(); refreshViews(); }
+function applyAll(){ applyTheme(); applyAccent(); applyTilt(); applyDisplay(); applyGlow(); applySound(); refreshViews(); }
 
 /* -------- Views --------------------------------------------------- */
 let built={analog:false,digital:false};
@@ -170,7 +173,7 @@ function tick(){
   const f=F(), e=elapsed(), ph=phaseOf(f,e), col=phaseColor(ph);
   document.documentElement.style.setProperty('--phase',col);
 
-  const view = VIEWS[S.settings.display];
+  const view = VIEWS[dispView()];
   if(view && view.render) view.render(e,f,ph,col);
 
   // Statuszeile
@@ -245,6 +248,7 @@ function syncSettingsUI(){
   setSeg('#axisSeg',S.settings.axis); setSeg('#dispSeg',S.settings.display);
   setSeg('#dirSeg',S.settings.dir); setSeg('#themeSeg',S.settings.theme);
   $('#togFlip').classList.toggle('on',S.settings.flip);
+  $('#togGlow').classList.toggle('on',S.settings.glow);
   $('#togSound').classList.toggle('on',S.settings.sound);
   $('#togVib').classList.toggle('on',S.settings.vib);
   $('#togFlash').classList.toggle('on',S.settings.flash);
@@ -269,22 +273,18 @@ function tiltHUD(show,val){
 
 /* -------- Gesten -------------------------------------------------- */
 function bindGestures(){
-  const stage=$('#stage'); let lp=null,longFired=false,downAt=0;
+  const stage=$('#stage');
   let gesturing=false, startY=0, startTilt=0, suppressTapUntil=0;
   const ignore=(t)=>t.closest('.chrome')||t.closest('.sheet');
   const avgY=(touches)=>{ let y=0; for(const t of touches) y+=t.clientY; return y/touches.length; };
 
-  stage.addEventListener('pointerdown',e=>{ if(ignore(e.target))return;
-    if(gesturing){ clearTimeout(lp); return; }
-    longFired=false; downAt=Date.now(); lp=setTimeout(()=>{ longFired=true; reset(); },650); });
-  stage.addEventListener('pointerup',e=>{ if(ignore(e.target))return; clearTimeout(lp);
-    if(gesturing || Date.now()<suppressTapUntil) return;
-    if(!longFired && Date.now()-downAt<650) startPause(); });
-  stage.addEventListener('pointercancel',()=>clearTimeout(lp));
+  // Tippen = Start / Pause (kein Reset mehr per Gedrückthalten)
+  stage.addEventListener('pointerup',e=>{ if(ignore(e.target))return;
+    if(gesturing || Date.now()<suppressTapUntil) return; startPause(); });
 
   // Zwei Finger vertikal ziehen = Tisch virtuell aufrichten/neigen
   stage.addEventListener('touchstart',e=>{ if(ignore(e.target))return;
-    if(e.touches.length===2){ gesturing=true; clearTimeout(lp);
+    if(e.touches.length===2){ gesturing=true;
       startY=avgY(e.touches); startTilt=S.settings.tilt; tiltHUD(true,startTilt); }
   },{passive:false});
   stage.addEventListener('touchmove',e=>{ if(!gesturing)return;
@@ -311,6 +311,7 @@ function init(){
     S.mode=b.dataset.mode; renderFormats(); save(); });
   $('#backBtn').addEventListener('click',()=>{ if(S.running) startPause(); go('setup'); });
   $('#gearBtn').addEventListener('click',openSheet);
+  $('#resetBtn').addEventListener('click',()=>{ reset(); });
   $('#soundBtn').addEventListener('click',()=>{ S.settings.sound=!S.settings.sound; if(S.settings.sound) ensureAudio(); applySound(); syncSettingsUI(); save(); });
   $('#scrim').addEventListener('click',closeSheet);
 
@@ -324,6 +325,7 @@ function init(){
   $('#themeSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return;
     S.settings.theme=b.dataset.v; applyTheme(); refreshViews(); syncSettingsUI(); save(); });
   $('#togFlip').addEventListener('click',()=>{ S.settings.flip=!S.settings.flip; applyTilt(); syncSettingsUI(); save(); });
+  $('#togGlow').addEventListener('click',()=>{ S.settings.glow=!S.settings.glow; applyGlow(); syncSettingsUI(); save(); });
   $('#togSound').addEventListener('click',()=>{ S.settings.sound=!S.settings.sound; if(S.settings.sound) ensureAudio(); applySound(); syncSettingsUI(); save(); });
   $('#togVib').addEventListener('click',()=>{ S.settings.vib=!S.settings.vib; syncSettingsUI(); save(); });
   $('#togFlash').addEventListener('click',()=>{ S.settings.flash=!S.settings.flash; syncSettingsUI(); save(); });

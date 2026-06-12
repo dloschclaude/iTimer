@@ -104,7 +104,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidd
 .arc-zone{fill:none;stroke-width:3.4;stroke-linecap:butt;opacity:.9;}
 .arc-zone[data-kind="prot"]{stroke:var(--c-prot);}
 .arc-zone[data-kind="warn"]{stroke:var(--c-warn);}
-.arc-prog{fill:none;stroke:var(--c-open);stroke-width:3;stroke-linecap:round;transition:stroke .5s var(--ease);}
+.arc-prog{fill:none;stroke:var(--ink);opacity:.5;stroke-width:4;stroke-linecap:round;transition:stroke .5s var(--ease),opacity .5s var(--ease);}
 .bell-mark{fill:var(--ink);opacity:.4;}
 .bell-mark.end{fill:var(--accent);opacity:1;}
 .hand-blade{fill:var(--accent);transition:fill .5s var(--ease);}
@@ -112,7 +112,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidd
 .cap-base{fill:var(--bg);stroke:var(--accent);stroke-width:1.4;}
 .cap-dot{fill:var(--accent);}
 .ana-read{display:flex;flex-direction:column;align-items:center;}
-.ana-time{font-size:clamp(40px,12vw,62px);font-weight:200;letter-spacing:-.03em;line-height:1;
+.ana-time{font-size:clamp(52px,15vw,80px);font-weight:200;letter-spacing:-.03em;line-height:1;
   font-variant-numeric:tabular-nums;color:var(--ink);transition:color .5s var(--ease);}
 
 /* ---- digital (seven-segment) ---- */
@@ -132,6 +132,19 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidd
 .seg.on{fill:var(--seg-on,var(--c-open));filter:drop-shadow(0 0 9px var(--seg-on,var(--c-open))) drop-shadow(0 0 2px var(--seg-on,var(--c-open)));}
 .colon circle{fill:var(--seg-off,rgba(243,242,237,.07));}
 .colon.lit circle{fill:var(--seg-on,var(--c-open));filter:drop-shadow(0 0 9px var(--seg-on,var(--c-open)));}
+
+/* glow off — flat LCD look */
+[data-glow="off"] .seg.on{filter:none;}
+[data-glow="off"] .colon.lit circle{filter:none;}
+
+/* XL / full-screen digital (great in landscape) */
+.stage[data-disp="xl"] .table-shadow{opacity:0;}
+.stage[data-disp="xl"] .plane{width:min(95vw,1500px);height:auto;transform-origin:center center;}
+.stage[data-disp="xl"] #viewAnalog{display:none;}
+.stage[data-disp="xl"] #viewDigital{position:relative;inset:auto;opacity:1;}
+.stage[data-disp="xl"] .seg-wrap{width:100%;gap:clamp(14px,2.5vh,26px);}
+.stage[data-disp="xl"] .seg-panel{padding:clamp(28px,6vh,72px) clamp(26px,5vw,90px);border-radius:clamp(20px,3vw,40px);}
+.stage[data-disp="xl"] .seg-label{font-size:clamp(11px,1.5vw,17px);}
 
 /* shared state line */
 .rstate{position:absolute;left:0;right:0;bottom:-4%;text-align:center;font-size:13px;

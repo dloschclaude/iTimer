@@ -29,7 +29,7 @@
       <div class="seg-note" id="segNote"></div>
     </div>
     <div class="formats" id="formats"></div>
-    <div class="setup-foot"><div class="hint">Tippen zum Starten · Lange drücken setzt zurück</div></div>
+    <div class="setup-foot"><div class="hint">Tippen zum Starten · Pause & Reset im Timer</div></div>
   </section>
 
   <!-- TIMER -->
@@ -38,7 +38,10 @@
     <div class="chrome">
       <button class="iconbtn" id="backBtn" aria-label="Zurück"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
       <span class="fmt-tag" id="fmtTag"></span>
-      <button class="iconbtn" id="gearBtn" aria-label="Einstellungen"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1M18.4 18.4l-2.1-2.1M7.7 7.7L5.6 5.6"/></svg></button>
+      <div class="chrome-r">
+        <button class="iconbtn" id="resetBtn" aria-label="Zurücksetzen"><svg viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M5 3.2V8h4.8"/></svg></button>
+        <button class="iconbtn" id="gearBtn" aria-label="Einstellungen"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1M18.4 18.4l-2.1-2.1M7.7 7.7L5.6 5.6"/></svg></button>
+      </div>
     </div>
     <div class="stage" id="stage">
       <div class="table-shadow"></div>
@@ -59,11 +62,15 @@
     <h2>Anzeige</h2>
     <div class="row">
       <div><div class="rlabel">Darstellung</div></div>
-      <div class="mseg" id="dispSeg"><button data-v="analog" class="on">Analog</button><button data-v="digital">Digital</button></div>
+      <div class="mseg" id="dispSeg"><button data-v="analog" class="on">Analog</button><button data-v="digital">Digital</button><button data-v="xl">XL</button></div>
     </div>
     <div class="row">
       <div><div class="rlabel">Richtung</div></div>
       <div class="mseg" id="dirSeg"><button data-v="remaining" class="on">Restzeit</button><button data-v="elapsed">Verstrichen</button></div>
+    </div>
+    <div class="row">
+      <div><div class="rlabel">Leuchten</div><div class="rsub">Glühen der Ziffern · Digital</div></div>
+      <div class="tog on" id="togGlow"></div>
     </div>
     <h2>Kippung</h2>
     <div class="row">

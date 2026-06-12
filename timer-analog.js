@@ -92,8 +92,13 @@
     const frac=Math.min(e/f.dur,1);
     if(e>=f.dur){ refs.arc.setAttribute('stroke-dasharray','1 0'); refs.arc.setAttribute('stroke-dashoffset','0'); }
     else{ refs.arc.setAttribute('stroke-dasharray','1'); refs.arc.setAttribute('stroke-dashoffset',frac.toFixed(4)); }
-    refs.arc.style.stroke=col;
-    refs.arc.style.filter=(ph==='over'||ph==='warn')?'drop-shadow(0 0 4px '+col+')':'none';
+    // depleting ring spans the FULL duration; neutral & visible, phase-tinted near the end
+    const css=getComputedStyle(document.documentElement);
+    if(ph==='over'){ refs.arc.style.stroke=col; refs.arc.style.opacity='1'; }
+    else if(ph==='warn'){ refs.arc.style.stroke=col; refs.arc.style.opacity='.95'; }
+    else if(ph==='prot'){ refs.arc.style.stroke=css.getPropertyValue('--c-prot').trim(); refs.arc.style.opacity='.9'; }
+    else { refs.arc.style.stroke=''; refs.arc.style.opacity=''; }
+    refs.arc.style.filter=(ph==='over'||ph==='warn')?'drop-shadow(0 0 5px '+col+')':'none';
     // readout
     if(S.settings.dir==='elapsed') refs.time.textContent=fmt(e);
     else { const rem=f.dur-e; refs.time.textContent = rem>=0?fmt(rem):'+'+fmt(-rem); }
