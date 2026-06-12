@@ -59,7 +59,7 @@ window.S = {
   settings:{
     tilt:-15, axis:'x', flip:false,
     display:'analog', dir:'remaining', glow:'full', anaStyle:'minimal',
-    sound:true, vib:true, flash:true,
+    sound:true, vib:true, flash:true, bell:'classic',
     theme:'black', accent:'amber',
   },
 };
@@ -93,19 +93,51 @@ window.F = ()=>curFormats[S.formatKey];
 
 /* -------- Audio (synth bell) -------------------------------------- */
 let actx=null;
-function ensureAudio(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
-  if(actx&&actx.state==='suspended') actx.resume(); }
-function strike(when,freq){
+function ensureAudio(){
+  if(actx){ if(actx.state==='suspended') actx.resume(); return; }
+  try{
+    actx=new (window.AudioContext||window.webkitAudioContext)();
+    // iOS unlock: play a 1-sample silent buffer inside the gesture
+    const b=actx.createBuffer(1,1,22050), s=actx.createBufferSource();
+    s.buffer=b; s.connect(actx.destination); s.start(0);
+  }catch(e){}
+}
+// Klassisch: bright triangle + harmonic, the original sound.
+function strikeClassic(when,freq){
   if(!actx) return;
   const o=actx.createOscillator(),o2=actx.createOscillator(),g=actx.createGain(),g2=actx.createGain();
   o.type='triangle'; o.frequency.value=freq; o2.type='sine'; o2.frequency.value=freq*2.01; g2.gain.value=.32;
   o.connect(g); o2.connect(g2); g2.connect(g); g.connect(actx.destination);
-  g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(.5,when+0.006);
+  g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(.65,when+0.006);
   g.gain.exponentialRampToValueAtTime(.0008,when+1.15);
   o.start(when); o2.start(when); o.stop(when+1.25); o2.stop(when+1.25);
 }
+// Glocke: multi-partial church-bell at non-integer ratios, longer decay.
+function strikeBell(when){
+  if(!actx) return;
+  const f0=520;
+  const partials=[
+    {r:0.5, a:0.22, d:2.6},
+    {r:1.0, a:0.50, d:2.0},
+    {r:2.0, a:0.30, d:1.4},
+    {r:2.76,a:0.24, d:1.0},
+    {r:4.2, a:0.13, d:0.6},
+    {r:5.4, a:0.08, d:0.4},
+  ];
+  for(const p of partials){
+    const o=actx.createOscillator(), g=actx.createGain();
+    o.connect(g).connect(actx.destination);
+    o.type='sine'; o.frequency.value=f0*p.r;
+    g.gain.setValueAtTime(0.0001,when);
+    g.gain.exponentialRampToValueAtTime(p.a,when+0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001,when+p.d);
+    o.start(when); o.stop(when+p.d+0.05);
+  }
+}
+const BELLS={ classic:(t)=>strikeClassic(t,784), bell:(t)=>strikeBell(t) };
 function bell(double){ if(!S.settings.sound) return; ensureAudio(); if(!actx) return;
-  const t=actx.currentTime; strike(t,784); if(double) strike(t+0.27,784); }
+  const strike=BELLS[S.settings.bell]||BELLS.classic;
+  const t=actx.currentTime; strike(t); if(double) strike(t+0.32); }
 
 /* -------- Signale ------------------------------------------------- */
 let firedTimes=new Set();
@@ -240,9 +272,10 @@ function reset(){
   showHint(); vibrate(false); save();
 }
 function updateControls(){
-  const a=$('#startBtn'), b=$('#stopBtn');
-  if(a) a.classList.toggle('active', S.running);
-  if(b) b.classList.toggle('active', !S.running);
+  const p=$('#playBtn');
+  if(!p) return;
+  p.classList.toggle('running', S.running);
+  p.setAttribute('aria-label', S.running?'Pause':'Start');
 }
 function hideHint(){ updateControls(); }
 function showHint(){ updateControls(); }
@@ -290,6 +323,7 @@ function syncSettingsUI(){
   setSeg('#dirSeg',S.settings.dir); setSeg('#themeSeg',S.settings.theme);
   $('#togFlip').classList.toggle('on',S.settings.flip);
   setSeg('#glowSeg',S.settings.glow);
+  setSeg('#bellSeg',S.settings.bell);
   $('#togSound').classList.toggle('on',S.settings.sound);
   $('#togVib').classList.toggle('on',S.settings.vib);
   $('#togFlash').classList.toggle('on',S.settings.flash);
@@ -329,20 +363,21 @@ function bindGestures(){
   const ignore=(t)=>t.closest('.chrome')||t.closest('.sheet')||t.closest('.controls');
   const avgY=(touches)=>{ let y=0; for(const t of touches) y+=t.clientY; return y/touches.length; };
 
-  // Ein Finger horizontal wischen = Uhrenstil wechseln; sonst Tippen = Start / Pause
+  // Ein Finger horizontal wischen = Uhrenstil wechseln. Tippen tut nichts –
+  // Start/Pause läuft ausschliesslich über den Play-Button.
   let downX=0, downY=0, maybeSwipe=false;
   stage.addEventListener('pointerdown',e=>{ if(ignore(e.target))return;
     downX=e.clientX; downY=e.clientY; maybeSwipe=true; });
   stage.addEventListener('pointercancel',()=>{ maybeSwipe=false; });
-  stage.addEventListener('pointerup',e=>{ if(ignore(e.target))return;
+  stage.addEventListener('pointerup',e=>{ if(ignore(e.target)){ maybeSwipe=false; return; }
     if(gesturing || Date.now()<suppressTapUntil){ maybeSwipe=false; return; }
     if(maybeSwipe){
       const dx=e.clientX-downX, dy=e.clientY-downY;
       if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.3){
-        cycleStyle(dx<0?1:-1); maybeSwipe=false; return;
+        cycleStyle(dx<0?1:-1);
       }
     }
-    maybeSwipe=false; startPause();
+    maybeSwipe=false;
   });
 
   // Zwei Finger vertikal ziehen = Tisch virtuell aufrichten/neigen
@@ -375,8 +410,7 @@ function init(){
   $('#backBtn').addEventListener('click',()=>{ if(S.running) startPause(); go('setup'); });
   $('#gearBtn').addEventListener('click',openSheet);
   $('#resetBtn').addEventListener('click',()=>{ reset(); });
-  $('#startBtn').addEventListener('click',()=>{ if(!S.running) startPause(); });
-  $('#stopBtn').addEventListener('click',()=>{ if(S.running) startPause(); });
+  $('#playBtn').addEventListener('click',()=>{ ensureAudio(); startPause(); });
   $('#soundBtn').addEventListener('click',()=>{ S.settings.sound=!S.settings.sound; if(S.settings.sound) ensureAudio(); applySound(); syncSettingsUI(); save(); });
   $('#scrim').addEventListener('click',closeSheet);
 
@@ -395,6 +429,8 @@ function init(){
   $('#glowSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return;
     S.settings.glow=b.dataset.v; applyGlow(); syncSettingsUI(); save(); });
   $('#togSound').addEventListener('click',()=>{ S.settings.sound=!S.settings.sound; if(S.settings.sound) ensureAudio(); applySound(); syncSettingsUI(); save(); });
+  $('#bellSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return;
+    S.settings.bell=b.dataset.v; ensureAudio(); bell(false); syncSettingsUI(); save(); });
   $('#togVib').addEventListener('click',()=>{ S.settings.vib=!S.settings.vib; syncSettingsUI(); save(); });
   $('#togFlash').addEventListener('click',()=>{ S.settings.flash=!S.settings.flash; syncSettingsUI(); save(); });
 

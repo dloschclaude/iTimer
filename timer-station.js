@@ -92,10 +92,12 @@
     refs.shand.setAttribute('transform',`rotate(${secAng} 200 200)`);
     refs.mhand.setAttribute('transform',`rotate(${minAng} 200 200)`);
 
-    // depleting progress ring over the full duration
-    const frac=Math.min(e/f.dur,1);
-    if(e>=f.dur){ refs.arc.setAttribute('stroke-dasharray','1 0'); refs.arc.setAttribute('stroke-dashoffset','0'); }
-    else{ refs.arc.setAttribute('stroke-dasharray','1'); refs.arc.setAttribute('stroke-dashoffset',frac.toFixed(4)); }
+    // depleting progress ring: starts at the current-time position and
+    // sweeps clockwise to 12 o'clock so it lines up with the zone markers
+    const frac=Math.min(e/f.dur,1), rem=Math.max(0,1-frac);
+    if(rem<=0){ refs.arc.setAttribute('stroke-dasharray','0 1'); refs.arc.setAttribute('stroke-dashoffset','0'); }
+    else { refs.arc.setAttribute('stroke-dasharray', `${rem.toFixed(4)} ${frac.toFixed(4)}`);
+           refs.arc.setAttribute('stroke-dashoffset', (-frac).toFixed(4)); }
     const css=getComputedStyle(document.documentElement);
     if(ph==='over'){ refs.arc.style.stroke=col; refs.arc.style.opacity='1'; }
     else if(ph==='warn'){ refs.arc.style.stroke=col; refs.arc.style.opacity='.95'; }

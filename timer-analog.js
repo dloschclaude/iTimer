@@ -88,10 +88,12 @@
     // sweeping seconds hand — one revolution / minute
     const secAng=((e%60)/60)*360;
     refs.hand.setAttribute('transform',`rotate(${secAng} 200 200)`);
-    // remaining arc depletes
-    const frac=Math.min(e/f.dur,1);
-    if(e>=f.dur){ refs.arc.setAttribute('stroke-dasharray','1 0'); refs.arc.setAttribute('stroke-dashoffset','0'); }
-    else{ refs.arc.setAttribute('stroke-dasharray','1'); refs.arc.setAttribute('stroke-dashoffset',frac.toFixed(4)); }
+    // remaining arc sits over the elapsed-time markers: starts at the
+    // current-time position and sweeps clockwise to 12 o'clock
+    const frac=Math.min(e/f.dur,1), rem=Math.max(0,1-frac);
+    if(rem<=0){ refs.arc.setAttribute('stroke-dasharray','0 1'); refs.arc.setAttribute('stroke-dashoffset','0'); }
+    else { refs.arc.setAttribute('stroke-dasharray', `${rem.toFixed(4)} ${frac.toFixed(4)}`);
+           refs.arc.setAttribute('stroke-dashoffset', (-frac).toFixed(4)); }
     // depleting ring spans the FULL duration; neutral & visible, phase-tinted near the end
     const css=getComputedStyle(document.documentElement);
     if(ph==='over'){ refs.arc.style.stroke=col; refs.arc.style.opacity='1'; }

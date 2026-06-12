@@ -67,11 +67,17 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidd
 .chrome-r{display:flex;align-items:center;gap:6px;}
 .iconbtn.ghost{background:transparent;backdrop-filter:none;color:var(--ink);}
 .controls{position:absolute;left:0;right:0;bottom:max(env(safe-area-inset-bottom),28px);
-  display:flex;justify-content:center;align-items:center;gap:16px;z-index:8;}
+  display:flex;justify-content:center;align-items:center;gap:22px;z-index:8;}
 .controls .iconbtn.ghost{width:46px;height:46px;}
 .controls .iconbtn.ghost svg{width:24px;height:24px;}
 .iconbtn.ghost.active{color:var(--accent);}
 .iconbtn.solid svg{fill:currentColor;stroke:none;}
+/* Combined play / pause — show one icon group at a time */
+#playBtn{width:64px;height:64px;color:var(--accent);}
+#playBtn svg{width:30px;height:30px;}
+#playBtn .ic-pause{display:none;}
+#playBtn.running .ic-play{display:none;}
+#playBtn.running .ic-pause{display:inline;}
 #soundBtn .slash{opacity:0;transition:opacity .25s var(--ease);}
 #soundBtn.muted{opacity:.4;}
 #soundBtn.muted .slash{opacity:1;}
