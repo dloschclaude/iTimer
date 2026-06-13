@@ -216,13 +216,13 @@
     text-align:center;font-size:13px;letter-spacing:.04em;color:var(--ink-dim);font-weight:500;
     min-height:16px;z-index:7;transition:color .5s var(--ease);}
 
-  /* two-finger tilt readout */
-  #tiltHud{position:absolute;left:50%;top:max(env(safe-area-inset-top),74px);transform:translateX(-50%) translateY(-6px);
+  /* two-finger tilt readout · swipe style readout */
+  #tiltHud,#styleHud{position:absolute;left:50%;top:max(env(safe-area-inset-top),74px);transform:translateX(-50%) translateY(-6px);
     z-index:8;font-family:var(--mono);font-size:13px;letter-spacing:.06em;font-variant-numeric:tabular-nums;
     color:var(--ink);background:var(--surface);backdrop-filter:blur(18px) saturate(1.4);
     border:1px solid var(--hair);padding:9px 16px;border-radius:999px;pointer-events:none;
     opacity:0;transition:opacity .25s var(--ease),transform .25s var(--ease);}
-  #tiltHud.on{opacity:1;transform:translateX(-50%) translateY(0);}
+  #tiltHud.on,#styleHud.on{opacity:1;transform:translateX(-50%) translateY(0);}
 
   /* ====================== SETTINGS SHEET ====================== */
   .scrim{position:absolute;inset:0;background:rgba(10,16,26,.42);opacity:0;pointer-events:none;
